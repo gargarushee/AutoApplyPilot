@@ -7,7 +7,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     // Open welcome page or dashboard
     chrome.tabs.create({
-      url: 'http://localhost:5000'
+      url: 'https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/'
     });
   }
   
@@ -69,7 +69,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'getResumeData') {
     // Fetch resume data from JobFlow API
-    fetch('http://localhost:5000/api/bookmarklet/resume-data')
+    fetch('https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/api/bookmarklet/resume-data')
       .then(response => response.json())
       .then(data => {
         sendResponse({ success: true, data });

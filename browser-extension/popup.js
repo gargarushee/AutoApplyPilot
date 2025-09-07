@@ -153,11 +153,11 @@ class JobFlowPopup {
 
     // Dashboard links
     document.getElementById('open-dashboard-btn').addEventListener('click', () => {
-      chrome.tabs.create({ url: 'http://localhost:5000' });
+      chrome.tabs.create({ url: 'https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/' });
     });
 
     document.getElementById('dashboard-link').addEventListener('click', () => {
-      chrome.tabs.create({ url: 'http://localhost:5000' });
+      chrome.tabs.create({ url: 'https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/' });
     });
 
     // Retry button
