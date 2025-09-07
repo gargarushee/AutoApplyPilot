@@ -53,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fullName: 'Alex Johnson',
         phone: '+1 (555) 123-4567',
         currentResumeId: null
-      });
+      }, 'demo-user-id'); // Specify the ID to create user with exact ID
     }
     next();
   });
