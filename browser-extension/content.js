@@ -20,20 +20,58 @@ class JobFlowAutoFill {
   isJobApplicationPage() {
     const url = window.location.href.toLowerCase();
     const content = document.body?.textContent?.toLowerCase() || '';
+    const title = document.title.toLowerCase();
     
-    // Check for job-related keywords in URL or content
+    // Enhanced job-related keywords in URL, title, or content
     const jobKeywords = [
       'careers', 'jobs', 'apply', 'application', 'position', 'employment',
-      'lever.co', 'greenhouse.io', 'workday.com', 'jobvite.com', 'breezy.hr'
+      'lever.co', 'greenhouse.io', 'workday.com', 'jobvite.com', 'breezy.hr',
+      'hire', 'hiring', 'join', 'team', 'vacancy', 'openings', 'opportunities',
+      'candidate', 'recruit', 'talent', 'role', 'opening'
     ];
     
     const formKeywords = [
       'resume', 'cv', 'first name', 'last name', 'email', 'phone',
-      'cover letter', 'experience', 'skills', 'education'
+      'cover letter', 'experience', 'skills', 'education', 'name', 'contact',
+      'upload', 'attach', 'portfolio', 'linkedin', 'github', 'website'
     ];
     
-    return jobKeywords.some(keyword => url.includes(keyword)) ||
-           formKeywords.some(keyword => content.includes(keyword));
+    // Check for form inputs that suggest job application
+    const hasJobFormInputs = document.querySelectorAll(`
+      input[name*="name"], input[name*="email"], input[name*="phone"],
+      input[name*="resume"], input[name*="cv"], input[name*="cover"],
+      input[type="file"], textarea[name*="experience"], 
+      textarea[name*="why"], textarea[name*="motivation"],
+      input[name*="first"], input[name*="last"], input[name*="contact"]
+    `).length > 0;
+    
+    // Check if there are file upload fields (common in job applications)
+    const hasFileUpload = document.querySelectorAll('input[type="file"]').length > 0;
+    
+    // Check for forms with multiple text inputs (application forms typically have many fields)
+    const forms = document.querySelectorAll('form');
+    const hasLongForm = Array.from(forms).some(form => 
+      form.querySelectorAll('input[type="text"], input[type="email"], textarea').length >= 3
+    );
+    
+    const isJobPage = jobKeywords.some(keyword => 
+      url.includes(keyword) || content.includes(keyword) || title.includes(keyword)
+    ) || formKeywords.some(keyword => content.includes(keyword)) ||
+    hasJobFormInputs || hasFileUpload || hasLongForm;
+    
+    // Debug logging to help understand why pages aren't detected
+    if (!isJobPage) {
+      console.log('JobFlow Debug: Page not detected as job application page');
+      console.log('URL:', url);
+      console.log('Title:', title);
+      console.log('Has job form inputs:', hasJobFormInputs);
+      console.log('Has file upload:', hasFileUpload);
+      console.log('Has long form:', hasLongForm);
+    } else {
+      console.log('JobFlow: Detected job application page');
+    }
+    
+    return isJobPage;
   }
 
   async loadResumeData() {
