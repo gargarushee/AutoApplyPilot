@@ -1,4 +1,4 @@
-// Dynamic import to avoid module loading issues\nlet pdfParse: any;
+import pdf from 'pdf-parse';
 
 export interface ExtractedResumeData {
   fullName?: string;
@@ -12,10 +12,7 @@ export interface ExtractedResumeData {
 export class PDFParserService {
   static async extractTextFromBuffer(buffer: Buffer): Promise<string> {
     try {
-      if (!pdfParse) {
-        pdfParse = (await import('pdf-parse')).default;
-      }
-      const data = await pdfParse(buffer);
+      const data = await pdf(buffer);
       return data.text;
     } catch (error) {
       console.error('Error extracting text from PDF:', error);
