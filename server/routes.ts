@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import path from "path";
 import { storage } from "./storage";
 import { PDFParserService } from "./services/pdfParser";
 import { JobParserService } from "./services/jobParser";
@@ -55,6 +56,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     next();
+  });
+
+  // Serve bookmarklet script
+  app.get("/bookmarklet.js", (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.join(process.cwd(), 'client/public/bookmarklet.js'));
   });
 
   // Simplified endpoints for demo - object storage removed for now
@@ -116,6 +124,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching resumes:", error);
       res.status(500).json({ error: "Failed to fetch resumes" });
+    }
+  });
+
+  // API endpoint for bookmarklet to get resume data
+  app.get("/api/bookmarklet/resume-data", async (req, res) => {
+    try {
+      // For demo, get the demo user's current resume
+      const user = await storage.getUser('demo-user-id');
+      if (!user?.currentResumeId) {
+        return res.json({ error: 'No resume uploaded' });
+      }
+      
+      const resume = await storage.getResume(user.currentResumeId);
+      if (!resume) {
+        return res.json({ error: 'Resume not found' });
+      }
+
+      // Return structured resume data for auto-filling
+      const resumeData = {
+        fullName: resume.extractedData?.fullName || user.fullName || '',
+        firstName: (resume.extractedData?.fullName || user.fullName || '').split(' ')[0] || '',
+        lastName: (resume.extractedData?.fullName || user.fullName || '').split(' ').slice(1).join(' ') || '',
+        email: resume.extractedData?.email || user.email || '',
+        phone: resume.extractedData?.phone || user.phone || '',
+        experience: resume.extractedData?.experience || '',
+        skills: resume.extractedData?.skills || [],
+        education: resume.extractedData?.education || '',
+        filename: resume.filename
+      };
+
+      res.json(resumeData);
+    } catch (error) {
+      console.error("Error fetching resume data for bookmarklet:", error);
+      res.status(500).json({ error: "Failed to fetch resume data" });
     }
   });
 
