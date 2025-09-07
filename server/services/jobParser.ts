@@ -20,10 +20,27 @@ export class JobParserService {
     try {
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
         },
-        timeout: 10000
+        timeout: 15000,
+        maxRedirects: 5,
+        validateStatus: (status) => status < 500 // Accept redirects and client errors
       });
+
+      // Check if we got a Cloudflare or bot protection page
+      if (response.status === 403 || 
+          response.data.includes('cloudflare') || 
+          response.data.includes('challenge-platform') ||
+          response.data.includes('captcha')) {
+        console.warn('Bot protection detected for URL:', url);
+        return this.createFallbackJobInfo(url);
+      }
 
       const $ = cheerio.load(response.data);
       const platform = this.detectPlatform(url);
@@ -50,10 +67,23 @@ export class JobParserService {
           jobInfo = this.parseGenericJob($, url);
       }
 
+      // Fallback if parsing failed to extract basic info
+      if (!jobInfo.title || !jobInfo.company) {
+        console.warn('Failed to extract job info, using fallback for:', url);
+        return this.createFallbackJobInfo(url);
+      }
+
       return jobInfo;
-    } catch (error) {
-      console.error('Error parsing job URL:', error);
-      throw new Error('Failed to parse job posting. Please check the URL and try again.');
+    } catch (error: any) {
+      console.error('Error parsing job URL:', error.message);
+      
+      // Check if it's a network/access error
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.response?.status === 403) {
+        console.warn('Network or access error, using fallback for:', url);
+        return this.createFallbackJobInfo(url);
+      }
+      
+      throw new Error('Failed to parse job posting. The website may be blocking automated access. Please try a different URL or contact support.');
     }
   }
 
@@ -213,5 +243,55 @@ export class JobParserService {
     });
 
     return fields;
+  }
+
+  private static createFallbackJobInfo(url: string): JobInfo {
+    const platform = this.detectPlatform(url);
+    
+    // Extract basic info from URL if possible
+    let company = 'Unknown Company';
+    let title = 'Unknown Position';
+    
+    try {
+      const urlObj = new URL(url);
+      const hostname = urlObj.hostname;
+      
+      // Try to extract company from domain
+      if (hostname.includes('lever.co')) {
+        const pathParts = urlObj.pathname.split('/');
+        company = pathParts[1] || 'Unknown Company';
+      } else if (hostname.includes('greenhouse.io') || hostname.includes('boards.greenhouse.io')) {
+        const pathParts = urlObj.pathname.split('/');
+        company = pathParts[1] || 'Unknown Company';
+      } else if (hostname.includes('myworkdayjobs.com')) {
+        const subdomain = hostname.split('.')[0];
+        company = subdomain.replace('myworkdayjobs', '').replace('-', ' ') || 'Unknown Company';
+      } else {
+        // Generic domain parsing
+        const domainParts = hostname.split('.');
+        if (domainParts.length > 2) {
+          company = domainParts[domainParts.length - 2];
+        }
+      }
+      
+      company = company.charAt(0).toUpperCase() + company.slice(1);
+    } catch (e) {
+      console.warn('Failed to parse URL for fallback info:', e);
+    }
+
+    return {
+      title,
+      company,
+      location: '',
+      platform,
+      formFields: [
+        { name: 'firstName', type: 'text', label: 'First Name', required: true },
+        { name: 'lastName', type: 'text', label: 'Last Name', required: true },
+        { name: 'email', type: 'email', label: 'Email Address', required: true },
+        { name: 'phone', type: 'tel', label: 'Phone Number', required: true },
+        { name: 'resume', type: 'file', label: 'Resume', required: true },
+        { name: 'coverLetter', type: 'textarea', label: 'Cover Letter', required: false },
+      ]
+    };
   }
 }

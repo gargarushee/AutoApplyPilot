@@ -68,11 +68,11 @@ export function QuickApply() {
 
   const handleUploadComplete = async (result: any) => {
     if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
+      const file = result.successful[0].file;
       
       // Create form data for the resume upload
       const formData = new FormData();
-      formData.append('resume', result.successful[0].data);
+      formData.append('resume', file);
 
       try {
         const response = await fetch('/api/resumes/upload', {
@@ -87,8 +87,16 @@ export function QuickApply() {
             title: "Resume uploaded successfully!",
             description: "Your resume has been processed and is ready to use.",
           });
+        } else {
+          const errorData = await response.json();
+          toast({
+            title: "Upload failed",
+            description: errorData.error || "Failed to process resume. Please try again.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
+        console.error('Resume upload error:', error);
         toast({
           title: "Upload failed",
           description: "Failed to process resume. Please try again.",
