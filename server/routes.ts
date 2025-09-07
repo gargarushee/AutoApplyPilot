@@ -10,7 +10,7 @@ import {
   insertJobApplicationSchema,
   insertApplicationActivitySchema
 } from "@shared/schema";
-import { ObjectStorageService } from "./objectStorage";
+// Object storage import removed - using simple file handling for demo
 
 // Configure multer for file uploads
 const upload = multer({
@@ -57,28 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
 
-  // Object storage endpoints
-  app.get("/objects/:objectPath(*)", async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error accessing object:", error);
-      return res.status(404).json({ error: "File not found" });
-    }
-  });
-
-  app.post("/api/objects/upload", async (req, res) => {
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
-    } catch (error) {
-      console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
-    }
-  });
+  // Simplified endpoints for demo - object storage removed for now
 
   // Resume endpoints
   app.post("/api/resumes/upload", mockAuth, upload.single('resume'), async (req: any, res) => {
@@ -91,9 +70,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filename = `${Date.now()}-${req.file.originalname}`;
       const objectPath = `/demo-uploads/${filename}`;
 
-      // Extract text and data from PDF
-      const extractedText = await PDFParserService.extractTextFromBuffer(req.file.buffer);
-      const extractedData = PDFParserService.extractStructuredData(extractedText);
+      // Extract text and data from PDF (with error handling)
+      let extractedText = '';
+      let extractedData = {};
+      
+      try {
+        extractedText = await PDFParserService.extractTextFromBuffer(req.file.buffer);
+        extractedData = PDFParserService.extractStructuredData(extractedText);
+      } catch (error) {
+        console.warn('PDF parsing failed, will create resume without extracted data:', error);
+        // Continue without extracted data - user can still upload and manage resumes
+      }
 
       // Create resume record
       const resume = await storage.createResume({
