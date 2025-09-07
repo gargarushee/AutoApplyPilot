@@ -50,7 +50,9 @@ class JobFlowPopup {
         function: this.checkForJobForms
       });
 
-      const pageInfo = results[0].result;
+      const pageInfo = results && results[0] && results[0].result 
+        ? results[0].result 
+        : { isJobPage: false, formsFound: 0 };
       this.updatePageStatus(pageInfo);
     } catch (error) {
       console.error('Failed to check page status:', error);

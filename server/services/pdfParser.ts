@@ -11,21 +11,48 @@ export class PDFParserService {
   static async extractTextFromBuffer(buffer: Buffer): Promise<string> {
     try {
       console.log('Parsing PDF - file size:', buffer.length, 'bytes');
-      // Use dynamic import to load pdf-parse
-      const { default: pdfParse } = await import('pdf-parse');
-      const data = await pdfParse(buffer);
-      const text = data.text || '';
-      console.log('PDF parsed successfully, extracted', text.length, 'characters');
-      return text;
+      
+      // Alternative approach - parse buffer directly without pdf-parse dependency
+      const text = buffer.toString('utf8');
+      
+      // If it contains PDF markers, try to extract readable text
+      if (text.includes('%PDF')) {
+        // Simple text extraction from PDF (basic approach)
+        const textMatch = text.match(/BT\s*(.*?)\s*ET/gs);
+        if (textMatch) {
+          const extractedText = textMatch.map(match => 
+            match.replace(/BT|ET/g, '').trim()
+          ).join(' ').replace(/[^\w\s@.-]/g, ' ').replace(/\s+/g, ' ').trim();
+          console.log('PDF text extracted successfully, length:', extractedText.length);
+          return extractedText;
+        }
+      }
+      
+      // If no PDF text found, try to use filename for basic extraction
+      console.log('PDF text extraction failed, using filename fallback');
+      return '';
     } catch (error) {
       console.error('PDF parsing failed:', error);
-      // Return empty string so structured data extraction can still work with filename
       return '';
     }
   }
 
-  static extractStructuredData(text: string): ExtractedResumeData {
+  static extractStructuredData(text: string, filename?: string): ExtractedResumeData {
     const data: ExtractedResumeData = {};
+
+    // If we have no text but have a filename, try to extract name from filename
+    if (!text && filename) {
+      const fileBaseName = filename.replace(/\.(pdf|doc|docx)$/i, '');
+      const cleanName = fileBaseName.replace(/[-_]/g, ' ').replace(/resume|cv/gi, '').trim();
+      
+      // Check if it looks like a name (2-4 words, only letters and spaces)
+      if (cleanName.split(' ').length >= 2 && cleanName.split(' ').length <= 4 && 
+          /^[A-Za-z\s]+$/.test(cleanName)) {
+        data.fullName = cleanName.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+      }
+    }
 
     // Extract email
     const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
@@ -40,12 +67,14 @@ export class PDFParserService {
     }
 
     // Extract name (simple heuristic - first line that looks like a name)
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    for (const line of lines.slice(0, 5)) {
-      if (line.split(' ').length >= 2 && line.split(' ').length <= 4 && 
-          /^[A-Za-z\s]+$/.test(line) && !line.toLowerCase().includes('resume')) {
-        data.fullName = line;
-        break;
+    if (!data.fullName) {
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      for (const line of lines.slice(0, 5)) {
+        if (line.split(' ').length >= 2 && line.split(' ').length <= 4 && 
+            /^[A-Za-z\s]+$/.test(line) && !line.toLowerCase().includes('resume')) {
+          data.fullName = line;
+          break;
+        }
       }
     }
 

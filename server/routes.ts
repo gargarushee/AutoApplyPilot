@@ -84,10 +84,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         extractedText = await PDFParserService.extractTextFromBuffer(req.file.buffer);
-        extractedData = PDFParserService.extractStructuredData(extractedText);
+        extractedData = PDFParserService.extractStructuredData(extractedText, req.file.originalname);
       } catch (error) {
         console.warn('PDF parsing failed, will create resume without extracted data:', error);
-        // Continue without extracted data - user can still upload and manage resumes
+        // Try to extract data from filename as fallback
+        extractedData = PDFParserService.extractStructuredData('', req.file.originalname);
       }
 
       // Create resume record
