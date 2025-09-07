@@ -2,7 +2,6 @@
 
 class JobFlowPopup {
   constructor() {
-    this.apiBase = 'http://localhost:5000'; // Can be configured
     this.resumeData = null;
     this.currentTab = null;
   }
@@ -21,17 +20,20 @@ class JobFlowPopup {
 
   async loadResumeData() {
     try {
-      const response = await fetch(`${this.apiBase}/api/bookmarklet/resume-data`);
-      const data = await response.json();
+      // Use Chrome messaging to get resume data from background script (avoids CORS)
+      const response = await chrome.runtime.sendMessage({ action: 'getResumeData' });
       
-      if (data.error) {
+      if (response && response.success && response.data) {
+        if (response.data.error) {
+          this.showState('no-resume');
+          return;
+        }
+        this.resumeData = response.data;
+        this.showState('ready');
+        this.updateResumeInfo();
+      } else {
         this.showState('no-resume');
-        return;
       }
-      
-      this.resumeData = data;
-      this.showState('ready');
-      this.updateResumeInfo();
     } catch (error) {
       console.error('Failed to load resume data:', error);
       this.showState('error');
@@ -151,11 +153,11 @@ class JobFlowPopup {
 
     // Dashboard links
     document.getElementById('open-dashboard-btn').addEventListener('click', () => {
-      chrome.tabs.create({ url: this.apiBase });
+      chrome.tabs.create({ url: 'http://localhost:5000' });
     });
 
     document.getElementById('dashboard-link').addEventListener('click', () => {
-      chrome.tabs.create({ url: this.apiBase });
+      chrome.tabs.create({ url: 'http://localhost:5000' });
     });
 
     // Retry button
