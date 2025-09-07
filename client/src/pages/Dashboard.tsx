@@ -4,7 +4,7 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { QuickApply } from "@/components/dashboard/QuickApply";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { ApplicationsTable } from "@/components/dashboard/ApplicationsTable";
-import { BookmarkletInstaller } from "@/components/bookmarklet/BookmarkletInstaller";
+import { ExtensionInstaller } from "@/components/bookmarklet/BookmarkletInstaller";
 
 export default function Dashboard() {
   return (
@@ -20,7 +20,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2 space-y-6">
               <QuickApply />
-              <BookmarkletInstaller />
+              <ExtensionInstaller />
             </div>
             <RecentActivity />
           </div>
