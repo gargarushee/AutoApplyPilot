@@ -10,12 +10,14 @@ chrome.runtime.onInstalled.addListener((details) => {
       url: 'http://localhost:5000'
     });
   }
-});
-
-// Handle extension icon click
-chrome.action.onClicked.addListener((tab) => {
-  // This is handled by the popup, but we can add additional logic here
-  console.log('Extension icon clicked on tab:', tab.url);
+  
+  // Create context menu
+  chrome.contextMenus.create({
+    id: 'jobflow-autofill',
+    title: 'Auto-fill with JobFlow',
+    contexts: ['page'],
+    documentUrlPatterns: ['*://*/*']
+  });
 });
 
 // Listen for tab updates to detect job sites
@@ -27,6 +29,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Check if the current tab is a job site
 function checkIfJobSite(tab) {
+  if (!tab.url) return;
+  
   const jobSitePatterns = [
     /lever\.co/i,
     /greenhouse\.io/i,
@@ -49,7 +53,6 @@ function checkIfJobSite(tab) {
       tabId: tab.id 
     });
     
-    // Optional: Show notification
     console.log('Job site detected:', tab.url);
   } else {
     // Clear badge
@@ -81,27 +84,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'autoFillComplete') {
     // Handle auto-fill completion
     console.log('Auto-fill completed:', request.data);
-    
-    // Optional: Show notification
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: 'icons/icon48.png',
-      title: 'JobFlow Auto-Fill',
-      message: `Auto-filled ${request.data.fieldsCount} form fields`
-    });
   }
 });
 
-// Context menu for right-click auto-fill (optional)
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'jobflow-autofill',
-    title: 'Auto-fill with JobFlow',
-    contexts: ['page', 'selection'],
-    documentUrlPatterns: ['*://*/*']
-  });
-});
-
+// Context menu click handler
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'jobflow-autofill') {
     // Trigger auto-fill via content script
@@ -109,12 +95,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// Storage management
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  console.log('Storage changed:', changes);
-});
-
 // Keep service worker alive
-const keepAlive = () => setInterval(chrome.runtime.getPlatformInfo, 20e3);
-chrome.runtime.onStartup.addListener(keepAlive);
-keepAlive();
+self.addEventListener('message', () => {
+  // Keep alive
+});
