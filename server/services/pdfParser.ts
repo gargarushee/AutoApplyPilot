@@ -1,5 +1,3 @@
-// PDF parsing temporarily disabled due to library issues
-
 export interface ExtractedResumeData {
   fullName?: string;
   email?: string;
@@ -11,9 +9,19 @@ export interface ExtractedResumeData {
 
 export class PDFParserService {
   static async extractTextFromBuffer(buffer: Buffer): Promise<string> {
-    // PDF parsing temporarily disabled - return placeholder
-    console.log('PDF parsing disabled - uploaded file size:', buffer.length, 'bytes');
-    return 'PDF content extraction temporarily disabled. Resume file uploaded successfully.';
+    try {
+      console.log('Parsing PDF - file size:', buffer.length, 'bytes');
+      // Use dynamic import to load pdf-parse
+      const { default: pdfParse } = await import('pdf-parse');
+      const data = await pdfParse(buffer);
+      const text = data.text || '';
+      console.log('PDF parsed successfully, extracted', text.length, 'characters');
+      return text;
+    } catch (error) {
+      console.error('PDF parsing failed:', error);
+      // Return empty string so structured data extraction can still work with filename
+      return '';
+    }
   }
 
   static extractStructuredData(text: string): ExtractedResumeData {
