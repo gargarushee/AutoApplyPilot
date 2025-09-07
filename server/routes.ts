@@ -87,13 +87,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No file uploaded" });
       }
 
-      const objectStorageService = new ObjectStorageService();
-      
-      // Get upload URL and upload file
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      
-      // For demo, we'll simulate the upload and create the resume record
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      // For demo purposes, create a simple path reference
+      const filename = `${Date.now()}-${req.file.originalname}`;
+      const objectPath = `/demo-uploads/${filename}`;
 
       // Extract text and data from PDF
       const extractedText = await PDFParserService.extractTextFromBuffer(req.file.buffer);
@@ -119,10 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Uploaded new resume: ${req.file.originalname}`
       });
 
-      res.json({ 
-        resume,
-        uploadURL: uploadURL // Client should upload the actual file to this URL
-      });
+      res.json({ resume });
     } catch (error) {
       console.error("Error uploading resume:", error);
       res.status(500).json({ error: "Failed to upload resume" });

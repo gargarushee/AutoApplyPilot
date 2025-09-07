@@ -57,54 +57,6 @@ export function QuickApply() {
     parseJobMutation.mutate(jobUrl);
   };
 
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload");
-    const data = await response.json();
-    return {
-      method: 'PUT' as const,
-      url: data.uploadURL,
-    };
-  };
-
-  const handleUploadComplete = async (result: any) => {
-    if (result.successful && result.successful.length > 0) {
-      const file = result.successful[0].file;
-      
-      // Create form data for the resume upload
-      const formData = new FormData();
-      formData.append('resume', file);
-
-      try {
-        const response = await fetch('/api/resumes/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (response.ok) {
-          queryClient.invalidateQueries({ queryKey: ['/api/resumes'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/dashboard/activity'] });
-          toast({
-            title: "Resume uploaded successfully!",
-            description: "Your resume has been processed and is ready to use.",
-          });
-        } else {
-          const errorData = await response.json();
-          toast({
-            title: "Upload failed",
-            description: errorData.error || "Failed to process resume. Please try again.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Resume upload error:', error);
-        toast({
-          title: "Upload failed",
-          description: "Failed to process resume. Please try again.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   return (
     <Card data-testid="quick-apply-card">
@@ -151,16 +103,58 @@ export function QuickApply() {
                 </p>
               </div>
             </div>
-            <ObjectUploader
-              maxNumberOfFiles={1}
-              maxFileSize={10485760}
-              onGetUploadParameters={handleGetUploadParameters}
-              onComplete={handleUploadComplete}
-              buttonClassName="text-sm text-primary hover:underline"
+            <Button 
+              onClick={() => document.getElementById('resume-upload')?.click()}
+              variant="link"
+              className="text-sm text-primary hover:underline p-0 h-auto"
+              data-testid="button-upload-resume"
             >
               <Upload className="mr-2 h-4 w-4" />
               {currentResume ? "Change Resume" : "Upload Resume"}
-            </ObjectUploader>
+            </Button>
+            <input
+              id="resume-upload"
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const formData = new FormData();
+                  formData.append('resume', file);
+                  
+                  try {
+                    const response = await fetch('/api/resumes/upload', {
+                      method: 'POST',
+                      body: formData,
+                    });
+
+                    if (response.ok) {
+                      queryClient.invalidateQueries({ queryKey: ['/api/resumes'] });
+                      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/activity'] });
+                      toast({
+                        title: "Resume uploaded successfully!",
+                        description: "Your resume has been processed and is ready to use.",
+                      });
+                    } else {
+                      const errorData = await response.json();
+                      toast({
+                        title: "Upload failed",
+                        description: errorData.error || "Failed to process resume. Please try again.",
+                        variant: "destructive",
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Resume upload error:', error);
+                    toast({
+                      title: "Upload failed",
+                      description: "Failed to process resume. Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }
+              }}
+            />
           </div>
         </div>
       </CardContent>
