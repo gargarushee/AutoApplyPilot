@@ -123,15 +123,23 @@ class JobFlowPopup {
     const autoFillBtn = document.getElementById('auto-fill-btn');
     const statsElement = document.getElementById('stats');
 
-    if (pageInfo.isJobPage && pageInfo.formsFound > 0) {
+    // Ensure pageInfo is valid and has required properties
+    if (!pageInfo || typeof pageInfo !== 'object') {
+      pageInfo = { isJobPage: false, formsFound: 0 };
+    }
+
+    const isJobPage = pageInfo.isJobPage === true;
+    const formsFound = pageInfo.formsFound || 0;
+
+    if (isJobPage && formsFound > 0) {
       statusIndicator.className = 'status-indicator ready';
       statusText.textContent = 'Job application page detected';
       autoFillBtn.disabled = false;
       
       // Show stats
-      document.getElementById('forms-found').textContent = pageInfo.formsFound;
+      document.getElementById('forms-found').textContent = formsFound;
       statsElement.style.display = 'flex';
-    } else if (pageInfo.isJobPage) {
+    } else if (isJobPage) {
       statusIndicator.className = 'status-indicator warning';
       statusText.textContent = 'Job page detected, no forms found';
       autoFillBtn.disabled = true;
