@@ -430,48 +430,61 @@ ${resumeData.fullName || 'Applicant'}`,
       console.log(`  Input ${i + 1}: ${input.tagName} name="${input.name}" placeholder="${input.placeholder}" type="${input.type}" id="${input.id}"`);
     });
 
+    // More precise field targeting based on labels and context
     const fieldMappings = [
-      // Enhanced Greenhouse-specific selectors - look for actual form structure
       { 
         selectors: [
-          'input[type="text"]:not([name*="your-"]):not([name*="email"]):not([name*="phone"])',
-          'input[placeholder*="First Name" i]', 'input[placeholder*="first name" i]',
-          'input[name*="first" i]', 'input[id*="first" i]'
+          // Look for first input in a div that contains "First Name" text
+          'div:contains("First Name") input[type="text"]',
+          'label:contains("First Name") + input',
+          'label:contains("first name") + input',
+          'input[aria-label*="First Name" i]',
+          'input[name*="first_name"]',
+          'input[id*="first_name"]'
         ], 
         value: parsedData.firstName,
         type: 'firstName'
       },
       { 
         selectors: [
-          'input[type="text"][placeholder*="Last" i]',
-          'input[placeholder*="Last Name" i]', 'input[placeholder*="last name" i]',
-          'input[name*="last" i]', 'input[id*="last" i]'
+          'div:contains("Last Name") input[type="text"]',
+          'label:contains("Last Name") + input',
+          'label:contains("last name") + input', 
+          'input[aria-label*="Last Name" i]',
+          'input[name*="last_name"]',
+          'input[id*="last_name"]'
         ], 
         value: parsedData.lastName,
         type: 'lastName'
       },
       { 
         selectors: [
+          'div:contains("Email") input[type="email"]',
+          'div:contains("Email") input[type="text"]',
+          'label:contains("Email") + input',
           'input[type="email"]:not([name*="your-"])',
-          'input[placeholder*="Email" i]:not([name*="your-"])',
-          'input[name*="email" i]:not([name*="your-"])', 
-          'input[id*="email" i]:not([name*="your-"])'
+          'input[name*="email"]:not([name*="your-"])'
         ], 
         value: parsedData.email,
         type: 'email'
       },
       { 
         selectors: [
-          'input[type="tel"]', 'input[placeholder*="Phone" i]',
-          'input[name*="phone" i]', 'input[id*="phone" i]'
+          'div:contains("Phone") input[type="text"]',
+          'div:contains("Phone") input[type="tel"]',
+          'label:contains("Phone") + input',
+          'input[type="tel"]',
+          'input[name*="phone"]'
         ], 
         value: parsedData.phone,
         type: 'phone'
       },
       { 
         selectors: [
-          'input[placeholder*="LinkedIn" i]', 'textarea[placeholder*="LinkedIn" i]',
-          'input[name*="linkedin" i]', 'input[id*="linkedin" i]'
+          'div:contains("LinkedIn") input',
+          'div:contains("LinkedIn") textarea',
+          'label:contains("LinkedIn") + input',
+          'input[name*="linkedin"]'
         ], 
         value: parsedData.linkedinUrl,
         type: 'linkedin'
@@ -488,39 +501,63 @@ ${resumeData.fullName || 'Applicant'}`,
       let foundFields = 0;
 
       mapping.selectors.forEach(selector => {
-        const fields = form.querySelectorAll(selector);
-        console.log(`  Selector "${selector}": found ${fields.length} fields`);
-        
-        fields.forEach(field => {
-          console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}"`);
-          
-          if (field.value && field.value.trim()) {
-            console.log(`    Skipping - field already has value: "${field.value}"`);
-            return;
-          }
-          
-          if (field.tagName.toLowerCase() === 'select') {
-            // Handle select dropdowns
-            const options = field.querySelectorAll('option');
-            for (let option of options) {
-              if (option.textContent.toLowerCase().includes(mapping.value.toLowerCase())) {
-                field.value = option.value;
-                field.dispatchEvent(new Event('change', { bubbles: true }));
-                break;
-              }
+        try {
+          // Custom selector handling for :contains() which isn't natively supported
+          let fields = [];
+          if (selector.includes(':contains(')) {
+            // Handle :contains() selector manually
+            const match = selector.match(/(.+):contains\("([^"]+)"\)\s*(.+)/);
+            if (match) {
+              const [, containerSelector, containsText, inputSelector] = match;
+              const containers = form.querySelectorAll(containerSelector);
+              containers.forEach(container => {
+                if (container.textContent.toLowerCase().includes(containsText.toLowerCase())) {
+                  const inputs = container.querySelectorAll(inputSelector);
+                  fields.push(...inputs);
+                }
+              });
             }
           } else {
-            console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
-            field.value = mapping.value;
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
-            field.dispatchEvent(new Event('blur', { bubbles: true }));
+            fields = Array.from(form.querySelectorAll(selector));
           }
           
-          foundFields++;
-          totalFilled++;
-          console.log(`    ✓ Successfully filled field`);
-        });
+          console.log(`  Selector "${selector}": found ${fields.length} fields`);
+          
+          // Only fill the FIRST matching field to avoid filling multiple fields
+          if (fields.length > 0 && foundFields === 0) {
+            const field = fields[0];
+            console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}"`);
+            
+            if (field.value && field.value.trim()) {
+              console.log(`    Skipping - field already has value: "${field.value}"`);
+              return;
+            }
+            
+            if (field.tagName.toLowerCase() === 'select') {
+              // Handle select dropdowns
+              const options = field.querySelectorAll('option');
+              for (let option of options) {
+                if (option.textContent.toLowerCase().includes(mapping.value.toLowerCase())) {
+                  field.value = option.value;
+                  field.dispatchEvent(new Event('change', { bubbles: true }));
+                  break;
+                }
+              }
+            } else {
+              console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
+              field.value = mapping.value;
+              field.dispatchEvent(new Event('input', { bubbles: true }));
+              field.dispatchEvent(new Event('change', { bubbles: true }));
+              field.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+            
+            foundFields++;
+            totalFilled++;
+            console.log(`    ✓ Successfully filled field`);
+          }
+        } catch (error) {
+          console.log(`    Error with selector "${selector}": ${error.message}`);
+        }
       });
 
       if (foundFields === 0) {
@@ -528,6 +565,57 @@ ${resumeData.fullName || 'Applicant'}`,
       }
     });
   });
+
+  // Handle resume file attachment after filling fields
+  console.log('JobFlow: Looking for file upload fields...');
+  
+  // Look for file input elements (resume upload)
+  const fileInputs = document.querySelectorAll('input[type="file"]');
+  console.log(`JobFlow: Found ${fileInputs.length} file input fields`);
+  
+  if (fileInputs.length > 0 && resumeData.filename) {
+    fileInputs.forEach((fileInput, index) => {
+      console.log(`JobFlow: Processing file input ${index + 1}:`);
+      console.log(`  Input: accept="${fileInput.accept}" name="${fileInput.name}"`);
+      
+      // Check if this is likely a resume upload field
+      const parentText = fileInput.parentElement?.textContent?.toLowerCase() || '';
+      const isResumeField = parentText.includes('resume') || 
+                           parentText.includes('cv') || 
+                           fileInput.accept?.includes('.pdf') ||
+                           fileInput.accept?.includes('application/pdf');
+      
+      if (isResumeField) {
+        console.log('  This appears to be a resume upload field');
+        
+        try {
+          // Create a File object from the resume data
+          const resumeContent = resumeData.extractedText || 'Resume content';
+          const file = new File([resumeContent], resumeData.filename || 'resume.txt', {
+            type: 'text/plain',
+            lastModified: Date.now()
+          });
+          
+          // Create a FileList-like object
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          
+          // Trigger events to notify the form
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          console.log(`  ✓ Attached resume file: ${resumeData.filename}`);
+          totalFilled++;
+        } catch (error) {
+          console.log(`  ✗ Failed to attach resume: ${error.message}`);
+        }
+      } else {
+        console.log('  Skipping - not a resume upload field');
+      }
+    });
+  } else {
+    console.log('JobFlow: No file inputs found or no resume data available');
+  }
 
   console.log(`JobFlow: Total fields filled: ${totalFilled}`);
   return totalFilled;

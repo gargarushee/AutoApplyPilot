@@ -1,0 +1,59 @@
+JobFlow: Looking for firstName fields with value: "Arushee"
+VM28:145   Selector "input[type="text"]:not([name*="your-"]):not([name*="email"]):not([name*="phone"])": found 19 fields
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
+VM28:148     Found field: INPUT placeholder="" name=""
+VM28:166     Filling INPUT field with: "Arushee"
+VM28:175     ✓ Successfully filled field
