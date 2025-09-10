@@ -99,23 +99,36 @@ class JobFlowAutoFill {
   detectForms() {
     const forms = document.querySelectorAll('form');
     
-    // Filter to find the actual job application form (not newsletter/contact forms)
+    // Filter to find the actual Greenhouse job application form (very specific targeting)
     const jobApplicationForms = Array.from(forms).filter(form => {
-      const inputs = form.querySelectorAll('input, textarea');
-      const hasJobAppFields = Array.from(inputs).some(input => 
-        input.placeholder && (
-          input.placeholder.toLowerCase().includes('first name') ||
-          input.placeholder.toLowerCase().includes('last name') ||
-          input.type === 'file' ||
-          (input.type === 'email' && !input.name.includes('newsletter'))
-        )
-      ) || form.innerHTML.includes('First Name') || form.innerHTML.includes('Resume/CV');
+      // Skip forms inside our own extension UI
+      if (form.closest('.jobflow-extension, #jobflow-popup, .jobflow-floating-button')) {
+        return false;
+      }
       
-      const notNewsletterForm = !form.innerHTML.toLowerCase().includes('newsletter') &&
-                               !form.innerHTML.toLowerCase().includes('job alert') &&
-                               !form.querySelector('input[name*="your-"]');
+      // Look for Greenhouse-specific indicators
+      const formText = form.innerHTML.toLowerCase();
+      const isGreenhouseForm = formText.includes('first name') && 
+                              formText.includes('last name') && 
+                              formText.includes('resume/cv') &&
+                              !formText.includes('newsletter') &&
+                              !formText.includes('job alert') &&
+                              !form.querySelector('input[name*="your-"]');
       
-      return hasJobAppFields && notNewsletterForm;
+      // Additional check - look for the specific structure of Greenhouse forms
+      const hasRequiredFields = form.querySelector('input[type="text"]') && 
+                               form.querySelector('input[type="email"]') &&
+                               (form.querySelector('input[type="file"]') || formText.includes('attach'));
+      
+      // Check if this form has the "Apply for this job" context
+      const parentContext = form.closest('*')?.textContent || '';
+      const hasJobContext = parentContext.includes('Apply for this job') || 
+                           parentContext.includes('Submit application') ||
+                           formText.includes('submit application');
+      
+      console.log(`JobFlow: Checking form - Greenhouse indicators: ${isGreenhouseForm}, Required fields: ${hasRequiredFields}, Job context: ${hasJobContext}`);
+      
+      return isGreenhouseForm && hasRequiredFields && hasJobContext;
     });
     
     console.log(`JobFlow: Detected ${forms.length} total forms, ${jobApplicationForms.length} job application forms`);
@@ -452,8 +465,18 @@ class JobFlowAutoFill {
     const allInputs = form.querySelectorAll('input, select, textarea');
     console.log(`JobFlow: Form has ${allInputs.length} total input fields:`);
     allInputs.forEach((input, index) => {
-      console.log(`  Field ${index + 1}: ${input.tagName} - name="${input.name}" id="${input.id}" type="${input.type}" placeholder="${input.placeholder}"`);
+      console.log(`  Field ${index + 1}: ${input.tagName} - name="${input.name}" id="${input.id}" type="${input.type}" placeholder="${input.placeholder}" class="${input.className}"`);
     });
+    
+    // Check if this looks like our own extension form
+    const extensionIndicators = form.querySelector('.jobflow-extension, #jobflow-popup') || 
+                               form.innerHTML.includes('JobFlow') ||
+                               form.closest('.jobflow-extension, #jobflow-popup, .jobflow-floating-button');
+    
+    if (extensionIndicators) {
+      console.log('JobFlow: Skipping - this appears to be our own extension form');
+      return 0;
+    }
 
     fieldMappings.forEach(mapping => {
       if (!mapping.value) {
