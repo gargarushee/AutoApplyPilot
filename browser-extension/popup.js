@@ -525,6 +525,50 @@ ${resumeData.fullName || 'Applicant'}`,
       }
     ];
 
+    // Generate intelligent responses for open-ended questions
+    const generatedResponses = generateIntelligentResponses(resumeData);
+    console.log('JobFlow: Generated intelligent responses:', generatedResponses);
+
+    // Additional field mappings for generative/open-ended questions
+    const generativeFieldMappings = [
+      {
+        patterns: ['exceptional work', 'exceptional', 'outstanding', 'remarkable work', 'proud of'],
+        selectors: ['textarea'],
+        value: generatedResponses.exceptionalWork,
+        type: 'exceptionalWork'
+      },
+      {
+        patterns: ['biggest achievement', 'greatest achievement', 'accomplishment', 'proud achievement'],
+        selectors: ['textarea'],
+        value: generatedResponses.biggestAchievement,
+        type: 'biggestAchievement'
+      },
+      {
+        patterns: ['why hire you', 'why should we hire', 'what makes you', 'unique value'],
+        selectors: ['textarea'],
+        value: generatedResponses.whyHireYou,
+        type: 'whyHireYou'
+      },
+      {
+        patterns: ['technical challenge', 'difficult problem', 'complex problem', 'challenging project'],
+        selectors: ['textarea'],
+        value: generatedResponses.technicalChallenge,
+        type: 'technicalChallenge'
+      },
+      {
+        patterns: ['leadership experience', 'leadership', 'led a team', 'managed'],
+        selectors: ['textarea'],
+        value: generatedResponses.leadershipExperience,
+        type: 'leadershipExperience'
+      },
+      {
+        patterns: ['passion', 'passionate about', 'motivates you', 'drives you'],
+        selectors: ['textarea'],
+        value: generatedResponses.passion,
+        type: 'passion'
+      }
+    ];
+
     // Analyze resume data to determine intelligent answers
     const resumeAnalysis = analyzeResumeForSelections(resumeData);
     console.log('JobFlow: Resume analysis results:', resumeAnalysis);
@@ -638,6 +682,54 @@ ${resumeData.fullName || 'Applicant'}`,
       }
     });
 
+    // Handle generative text responses
+    console.log('JobFlow: Processing generative text fields...');
+    
+    generativeFieldMappings.forEach(mapping => {
+      if (!mapping.value) {
+        console.log(`JobFlow: Skipping ${mapping.type} - no generated response available`);
+        return;
+      }
+
+      console.log(`JobFlow: Looking for ${mapping.type} fields...`);
+      let foundFields = 0;
+
+      // Find textarea elements with surrounding context that matches the patterns
+      const allTextareas = form.querySelectorAll('textarea');
+      console.log(`  Found ${allTextareas.length} textarea elements`);
+      
+      allTextareas.forEach((textarea, index) => {
+        const surroundingText = getSurroundingText(textarea);
+        const isRelevant = mapping.patterns.some(pattern => 
+          new RegExp(pattern, 'i').test(surroundingText)
+        );
+        
+        if (isRelevant && foundFields === 0) {
+          console.log(`  Textarea ${index + 1} matches ${mapping.type}:`);
+          console.log(`    Context: "${surroundingText.substring(0, 100)}..."`);
+          
+          if (textarea.value && textarea.value.trim()) {
+            console.log(`    Skipping - field already has value`);
+            return;
+          }
+          
+          console.log(`    Filling with generated response (${mapping.value.length} chars)`);
+          textarea.value = mapping.value;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          textarea.dispatchEvent(new Event('blur', { bubbles: true }));
+          
+          foundFields++;
+          totalFilled++;
+          console.log(`    ✓ Successfully filled generative field`);
+        }
+      });
+
+      if (foundFields === 0) {
+        console.log(`JobFlow: No relevant textarea found for ${mapping.type}`);
+      }
+    });
+
     // Handle smart selections for dropdowns and radio buttons
     console.log('JobFlow: Processing smart selections for dropdowns and radio buttons...');
     
@@ -720,6 +812,127 @@ ${resumeData.fullName || 'Applicant'}`,
     });
   } else {
     console.log('JobFlow: No file inputs found or no resume data available');
+  }
+
+  // Generate intelligent responses for open-ended questions based on resume content
+  function generateIntelligentResponses(resumeData) {
+    const text = (resumeData.extractedText || '').toLowerCase();
+    const experience = (resumeData.experience || '');
+    const skills = Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || '');
+    
+    console.log('JobFlow: Generating intelligent responses from resume content...');
+    
+    // Extract achievements and projects from resume text
+    const achievements = extractAchievements(text);
+    const projects = extractProjects(text);
+    const technologies = extractTechnologies(text);
+    
+    // Generate exceptional work response
+    const exceptionalWork = generateExceptionalWorkResponse(achievements, projects, technologies, resumeData);
+    
+    // Generate biggest achievement response
+    const biggestAchievement = generateBiggestAchievementResponse(achievements, projects, resumeData);
+    
+    // Generate why hire you response
+    const whyHireYou = generateWhyHireYouResponse(skills, achievements, resumeData);
+    
+    // Generate technical challenge response
+    const technicalChallenge = generateTechnicalChallengeResponse(projects, technologies, resumeData);
+    
+    // Generate leadership experience response
+    const leadershipExperience = generateLeadershipResponse(text, projects, resumeData);
+    
+    // Generate passion response
+    const passion = generatePassionResponse(technologies, skills, resumeData);
+    
+    return {
+      exceptionalWork,
+      biggestAchievement,
+      whyHireYou,
+      technicalChallenge,
+      leadershipExperience,
+      passion
+    };
+  }
+  
+  // Helper functions for content extraction and generation
+  function extractAchievements(text) {
+    const achievementKeywords = ['achieved', 'accomplished', 'improved', 'increased', 'reduced', 'optimized', 'built', 'created', 'developed', 'launched'];
+    const sentences = text.split(/[.!?]+/);
+    return sentences.filter(sentence => 
+      achievementKeywords.some(keyword => sentence.includes(keyword)) && sentence.length > 20
+    ).slice(0, 3);
+  }
+  
+  function extractProjects(text) {
+    const projectKeywords = ['project', 'application', 'system', 'platform', 'tool', 'website', 'app'];
+    const sentences = text.split(/[.!?]+/);
+    return sentences.filter(sentence => 
+      projectKeywords.some(keyword => sentence.includes(keyword)) && sentence.length > 15
+    ).slice(0, 3);
+  }
+  
+  function extractTechnologies(text) {
+    const techKeywords = ['javascript', 'python', 'react', 'node', 'aws', 'docker', 'kubernetes', 'sql', 'mongodb', 'typescript', 'java', 'c++', 'machine learning', 'ai', 'api'];
+    return techKeywords.filter(tech => text.includes(tech));
+  }
+  
+  function generateExceptionalWorkResponse(achievements, projects, technologies, resumeData) {
+    if (achievements.length === 0 && projects.length === 0) {
+      return `I take pride in my ability to deliver high-quality solutions and continuously learn new technologies. My experience with ${technologies.slice(0, 3).join(', ') || 'various technologies'} has enabled me to contribute meaningfully to every project I've worked on. I focus on writing clean, maintainable code and collaborating effectively with cross-functional teams to achieve project goals.`;
+    }
+    
+    let response = "One piece of exceptional work I'm particularly proud of is ";
+    
+    if (achievements.length > 0) {
+      response += achievements[0].trim() + ". ";
+    } else if (projects.length > 0) {
+      response += projects[0].trim() + ". ";
+    }
+    
+    if (technologies.length > 0) {
+      response += `This project involved working with ${technologies.slice(0, 3).join(', ')}, which strengthened my technical skills and problem-solving abilities. `;
+    }
+    
+    response += "What made this work exceptional was not just the technical implementation, but also the impact it had on improving efficiency and user experience. I believe in going beyond just meeting requirements to deliver solutions that truly add value.";
+    
+    return response;
+  }
+  
+  function generateBiggestAchievementResponse(achievements, projects, resumeData) {
+    if (achievements.length === 0) {
+      return `My biggest achievement has been successfully transitioning into the tech industry and continuously expanding my skill set. I've demonstrated the ability to quickly learn new technologies and contribute to complex projects. Building a strong foundation in software development while maintaining high code quality standards has been a significant personal and professional milestone.`;
+    }
+    
+    return `My biggest achievement was ${achievements[0].trim()}. This accomplishment was significant because it demonstrated my ability to handle complex challenges, work collaboratively with team members, and deliver results that exceeded expectations. The experience taught me valuable lessons about perseverance, technical problem-solving, and the importance of continuous learning in the rapidly evolving tech landscape.`;
+  }
+  
+  function generateWhyHireYouResponse(skills, achievements, resumeData) {
+    const skillsList = skills || 'programming and problem-solving';
+    return `You should hire me because I bring a unique combination of technical expertise and strong problem-solving abilities. My experience with ${skillsList} enables me to contribute immediately to your team while continuing to grow and learn. I'm passionate about writing clean, efficient code and collaborating effectively with cross-functional teams. My track record demonstrates my ability to deliver high-quality solutions on time while maintaining attention to detail. I'm committed to continuous learning and staying current with industry best practices, which allows me to bring fresh perspectives and innovative solutions to complex challenges.`;
+  }
+  
+  function generateTechnicalChallengeResponse(projects, technologies, resumeData) {
+    if (projects.length === 0) {
+      return `One of the most challenging technical problems I've faced involved optimizing application performance and scalability. I approached this by first thoroughly analyzing the existing system to identify bottlenecks, then researching and implementing solutions using modern development practices. The process required careful planning, testing, and iterative improvements. This experience taught me the importance of systematic problem-solving and the value of leveraging the right tools and technologies for each specific challenge.`;
+    }
+    
+    return `A significant technical challenge I encountered was ${projects[0].trim()}. To solve this, I broke down the problem into smaller, manageable components and researched various approaches before implementing a solution. The key was understanding the root cause rather than just treating symptoms. This experience reinforced my belief in the importance of thorough analysis, careful planning, and iterative testing when tackling complex technical problems.`;
+  }
+  
+  function generateLeadershipResponse(text, projects, resumeData) {
+    const hasLeadershipMentions = text.includes('led') || text.includes('managed') || text.includes('coordinated') || text.includes('mentored');
+    
+    if (hasLeadershipMentions) {
+      return `I've had several opportunities to demonstrate leadership in both formal and informal settings. Whether leading project initiatives, mentoring junior team members, or coordinating cross-functional efforts, I focus on clear communication, collaborative decision-making, and empowering team members to do their best work. I believe effective leadership is about facilitating success for the entire team while maintaining high standards and ensuring project objectives are met.`;
+    }
+    
+    return `While I may not have formal management experience, I've demonstrated leadership through initiative-taking, knowledge sharing, and helping team members overcome challenges. I believe leadership is about stepping up when needed, communicating effectively, and contributing to a positive team dynamic. I'm eager to grow my leadership skills and take on more responsibility as opportunities arise.`;
+  }
+  
+  function generatePassionResponse(technologies, skills, resumeData) {
+    const techList = technologies.slice(0, 3).join(', ') || 'technology';
+    return `I'm deeply passionate about technology and its potential to solve real-world problems. Working with ${techList} energizes me because I love the continuous learning aspect of software development and the satisfaction of building solutions that make a meaningful impact. What drives me most is the opportunity to combine creativity with logical problem-solving, whether that's architecting elegant solutions, optimizing performance, or creating intuitive user experiences. I'm motivated by the collaborative nature of development work and the constant evolution of tools and best practices in our field.`;
   }
 
   // Analyze resume data to determine intelligent answers for common questions
