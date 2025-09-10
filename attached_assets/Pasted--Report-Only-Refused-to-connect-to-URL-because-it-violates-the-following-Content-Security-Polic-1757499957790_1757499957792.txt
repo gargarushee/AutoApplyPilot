@@ -1,0 +1,36 @@
+[Report Only] Refused to connect to '<URL>' because it violates the following Content Security Policy directive: "connect-src 'self'".
+
+VM1383:40 JobFlow Page Detection Debug: {url: 'https://contextual.ai/careers/?gh_jid=4543353007&gh_src=78366cb77us', urlHasJobKeywords: true, contentHasJobKeywords: true, hasJobApplicationForm: true, isJobPage: true, …}
+VM1384:41 JobFlow: Auto-fill script executing with data: {fullName: 'Arushee Garg', firstName: 'Arushee', lastName: 'Garg', email: 'argarg@linkedin.com', phone: '+1 (555) 123-4567', …}
+VM1384:44 JobFlow: Processing form 1/1
+VM1384:96 JobFlow: Looking for firstName fields with value: "Arushee"
+VM1384:101   Selector "input[placeholder*="First Name" i]": found 0 fields
+VM1384:101   Selector "input[placeholder*="first name" i]": found 0 fields
+VM1384:101   Selector "input[name*="first" i]": found 0 fields
+VM1384:101   Selector "input[id*="first" i]": found 0 fields
+VM1384:136 JobFlow: No fields found for firstName using any selector
+VM1384:96 JobFlow: Looking for lastName fields with value: "Garg"
+VM1384:101   Selector "input[placeholder*="Last Name" i]": found 0 fields
+VM1384:101   Selector "input[placeholder*="last name" i]": found 0 fields
+VM1384:101   Selector "input[name*="last" i]": found 0 fields
+VM1384:101   Selector "input[id*="last" i]": found 0 fields
+VM1384:136 JobFlow: No fields found for lastName using any selector
+VM1384:96 JobFlow: Looking for email fields with value: "argarg@linkedin.com"
+VM1384:101   Selector "input[placeholder*="Email" i]": found 0 fields
+VM1384:101   Selector "input[type="email"]": found 1 fields
+VM1384:104     Found field: INPUT placeholder="" name="your-email"
+VM1384:122     Filling INPUT field with: "argarg@linkedin.com"
+VM1384:131     ✓ Successfully filled field
+VM1384:101   Selector "input[name*="email" i]": found 1 fields
+VM1384:104     Found field: INPUT placeholder="" name="your-email"
+VM1384:107     Skipping - field already has value: "argarg@linkedin.com"
+VM1384:101   Selector "input[id*="email" i]": found 0 fields
+VM1384:96 JobFlow: Looking for phone fields with value: "+1 (555) 123-4567"
+VM1384:101   Selector "input[placeholder*="Phone" i]": found 0 fields
+VM1384:101   Selector "input[type="tel"]": found 0 fields
+VM1384:101   Selector "input[name*="phone" i]": found 0 fields
+VM1384:101   Selector "input[id*="phone" i]": found 0 fields
+VM1384:136 JobFlow: No fields found for phone using any selector
+VM1384:92 JobFlow: Skipping linkedin - no value available
+VM1384:141 JobFlow: Total fields filled: 1
+jquery.min.js:3 [Report Only] Refused to apply inline style because it violates the following Content Security Policy directive: "style-src 'self'". Either the 'unsafe-inline' keyword, a hash ('sha256-wEY234so6Txiwi9KS9nN+IXeMFHkuCbABvmQ9vpQmfE='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present.

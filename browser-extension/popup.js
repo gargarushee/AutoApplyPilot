@@ -386,14 +386,55 @@ ${resumeData.fullName || 'Applicant'}`,
   };
 
   console.log('JobFlow: Auto-fill script executing with data:', parsedData);
+  console.log(`JobFlow: Found ${forms.length} total forms on page`);
 
-  forms.forEach((form, formIndex) => {
-    console.log(`JobFlow: Processing form ${formIndex + 1}/${forms.length}`);
+  // Log all forms with their characteristics to debug which one to target
+  forms.forEach((form, index) => {
+    const inputs = form.querySelectorAll('input, textarea, select');
+    const formText = form.innerHTML.toLowerCase();
+    const hasContactFields = form.querySelector('input[name*="your-"]');
+    const hasJobAppFields = formText.includes('first name') && formText.includes('last name');
     
+    console.log(`Form ${index + 1}:`, {
+      inputCount: inputs.length,
+      hasContactFields: !!hasContactFields,
+      hasJobAppFields,
+      sampleInputs: Array.from(inputs).slice(0, 3).map(inp => ({
+        tag: inp.tagName,
+        name: inp.name,
+        placeholder: inp.placeholder,
+        type: inp.type
+      }))
+    });
+  });
+
+  // Filter to only process the job application form (exclude contact forms)
+  const jobApplicationForms = Array.from(forms).filter(form => {
+    const hasContactFields = form.querySelector('input[name*="your-"]');
+    const formText = form.innerHTML.toLowerCase();
+    const hasJobAppStructure = formText.includes('first name') && formText.includes('last name') && formText.includes('resume');
+    
+    console.log('Form filtering:', { hasContactFields: !!hasContactFields, hasJobAppStructure });
+    return !hasContactFields && hasJobAppStructure;
+  });
+
+  console.log(`JobFlow: Filtered to ${jobApplicationForms.length} job application forms`);
+
+  jobApplicationForms.forEach((form, formIndex) => {
+    console.log(`JobFlow: Processing job application form ${formIndex + 1}/${jobApplicationForms.length}`);
+    
+    // Log all inputs in this specific form for detailed debugging
+    const allInputs = form.querySelectorAll('input, textarea, select');
+    console.log(`JobFlow: Form has ${allInputs.length} inputs:`);
+    allInputs.forEach((input, i) => {
+      console.log(`  Input ${i + 1}: ${input.tagName} name="${input.name}" placeholder="${input.placeholder}" type="${input.type}" id="${input.id}"`);
+    });
+
     const fieldMappings = [
-      // Enhanced Greenhouse-specific selectors
+      // Enhanced Greenhouse-specific selectors - look for actual form structure
       { 
         selectors: [
+          'input[type="text"]:not([name*="your-"]):not([name*="email"]):not([name*="phone"])',
           'input[placeholder*="First Name" i]', 'input[placeholder*="first name" i]',
           'input[name*="first" i]', 'input[id*="first" i]'
         ], 
@@ -402,6 +443,7 @@ ${resumeData.fullName || 'Applicant'}`,
       },
       { 
         selectors: [
+          'input[type="text"][placeholder*="Last" i]',
           'input[placeholder*="Last Name" i]', 'input[placeholder*="last name" i]',
           'input[name*="last" i]', 'input[id*="last" i]'
         ], 
@@ -410,15 +452,17 @@ ${resumeData.fullName || 'Applicant'}`,
       },
       { 
         selectors: [
-          'input[placeholder*="Email" i]', 'input[type="email"]',
-          'input[name*="email" i]', 'input[id*="email" i]'
+          'input[type="email"]:not([name*="your-"])',
+          'input[placeholder*="Email" i]:not([name*="your-"])',
+          'input[name*="email" i]:not([name*="your-"])', 
+          'input[id*="email" i]:not([name*="your-"])'
         ], 
         value: parsedData.email,
         type: 'email'
       },
       { 
         selectors: [
-          'input[placeholder*="Phone" i]', 'input[type="tel"]',
+          'input[type="tel"]', 'input[placeholder*="Phone" i]',
           'input[name*="phone" i]', 'input[id*="phone" i]'
         ], 
         value: parsedData.phone,
