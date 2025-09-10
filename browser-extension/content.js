@@ -458,6 +458,67 @@ class JobFlowAutoFill {
         selectors: ['input[name*="website" i]', 'input[name*="portfolio" i]', 'input[id*="website" i]'], 
         value: parsedData.websiteUrl,
         type: 'websiteUrl'
+      },
+
+      // Common job application dropdown questions
+      { 
+        selectors: [
+          'select:has(option[value*="yes"], option[value*="no"])',
+          'select[name*="authorized" i]', 'select[id*="authorized" i]',
+          'select[name*="eligible" i]', 'select[id*="eligible" i]',
+          'select[name*="legal" i]', 'select[id*="legal" i]'
+        ], 
+        value: parsedData.workAuthorization,
+        type: 'workAuthorization',
+        questionKeywords: ['authorized', 'legally', 'eligible', 'work', 'united states', 'us']
+      },
+      { 
+        selectors: [
+          'select[name*="sponsorship" i]', 'select[id*="sponsorship" i]',
+          'select[name*="visa" i]', 'select[id*="visa" i]',
+          'select[name*="h1b" i]', 'select[id*="h1b" i]'
+        ], 
+        value: parsedData.visaSponsorship,
+        type: 'visaSponsorship',
+        questionKeywords: ['sponsorship', 'visa', 'h-1b', 'h1b', 'future', 'require']
+      },
+      { 
+        selectors: [
+          'select[name*="gender" i]', 'select[id*="gender" i]'
+        ], 
+        value: parsedData.gender,
+        type: 'gender',
+        questionKeywords: ['gender']
+      },
+      { 
+        selectors: [
+          'select[name*="hispanic" i]', 'select[id*="hispanic" i]',
+          'select[name*="latino" i]', 'select[id*="latino" i]',
+          'select[name*="ethnicity" i]', 'select[id*="ethnicity" i]'
+        ], 
+        value: parsedData.ethnicity,
+        type: 'ethnicity',
+        questionKeywords: ['hispanic', 'latino', 'ethnicity']
+      },
+      { 
+        selectors: [
+          'select[name*="worked" i]', 'select[id*="worked" i]',
+          'select[name*="previous" i]', 'select[id*="previous" i]',
+          'select[name*="employee" i]', 'select[id*="employee" i]'
+        ], 
+        value: parsedData.previousEmployment,
+        type: 'previousEmployment',
+        questionKeywords: ['worked', 'previously', 'employee', 'company', 'organization']
+      },
+      { 
+        selectors: [
+          'select[name*="family" i]', 'select[id*="family" i]',
+          'select[name*="relative" i]', 'select[id*="relative" i]',
+          'select[name*="relation" i]', 'select[id*="relation" i]'
+        ], 
+        value: parsedData.familyEmployment,
+        type: 'familyEmployment',
+        questionKeywords: ['family', 'relative', 'relation', 'member', 'working']
       }
     ];
 
@@ -501,10 +562,23 @@ class JobFlowAutoFill {
             return;
           }
           
-          // Handle different field types
-          if (field.tagName.toLowerCase() === 'select') {
+          // For dropdown questions, check if this field matches the question context
+          if (field.tagName.toLowerCase() === 'select' && mapping.questionKeywords) {
+            const questionContext = this.getQuestionContext(field);
+            const isMatchingQuestion = mapping.questionKeywords.some(keyword => 
+              questionContext.toLowerCase().includes(keyword.toLowerCase())
+            );
+            
+            if (!isMatchingQuestion) {
+              console.log(`    Skipping select - question context doesn't match: "${questionContext}"`);
+              return;
+            }
+            
+            console.log(`    Filling select field with: "${mapping.value}" (matched question context)`);
+            this.fillSelectElement(field, mapping.value, mapping.type);
+          } else if (field.tagName.toLowerCase() === 'select') {
             console.log(`    Filling select field with: "${mapping.value}"`);
-            this.fillSelectElement(field, mapping.value);
+            this.fillSelectElement(field, mapping.value, mapping.type);
           } else {
             console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
             field.value = mapping.value;
@@ -534,9 +608,84 @@ class JobFlowAutoFill {
     return filledCount;
   }
 
-  fillSelectElement(selectElement, value) {
-    const options = Array.from(selectElement.options);
+  getQuestionContext(field) {
+    // Look for question text in various places around the field
+    let questionText = '';
     
+    // Check label elements
+    const label = field.parentElement?.querySelector('label') || 
+                 document.querySelector(`label[for="${field.id}"]`);
+    if (label) {
+      questionText += ' ' + label.textContent;
+    }
+    
+    // Check parent element text content
+    if (field.parentElement) {
+      questionText += ' ' + field.parentElement.textContent;
+    }
+    
+    // Check previous siblings for question text
+    let sibling = field.parentElement?.previousElementSibling;
+    if (sibling) {
+      questionText += ' ' + sibling.textContent;
+    }
+    
+    return questionText.trim();
+  }
+
+  fillSelectElement(selectElement, value, fieldType = '') {
+    const options = Array.from(selectElement.options);
+    console.log(`    Available options: ${options.map(o => `"${o.textContent}" (value: "${o.value}")`).join(', ')}`);
+    
+    // For specific field types, use smart matching
+    if (fieldType === 'workAuthorization' && value === 'Yes') {
+      // Look for Yes/No options for work authorization
+      let matchingOption = options.find(option => 
+        option.value.toLowerCase() === 'yes' || 
+        option.textContent.toLowerCase() === 'yes' ||
+        option.value.toLowerCase() === 'true' ||
+        option.textContent.toLowerCase().includes('yes')
+      );
+      if (matchingOption) {
+        selectElement.value = matchingOption.value;
+        selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    ✓ Selected work authorization: ${matchingOption.textContent}`);
+        return;
+      }
+    }
+    
+    if (fieldType === 'visaSponsorship' && value === 'No') {
+      // Look for No options for visa sponsorship
+      let matchingOption = options.find(option => 
+        option.value.toLowerCase() === 'no' || 
+        option.textContent.toLowerCase() === 'no' ||
+        option.value.toLowerCase() === 'false' ||
+        option.textContent.toLowerCase().includes('no')
+      );
+      if (matchingOption) {
+        selectElement.value = matchingOption.value;
+        selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    ✓ Selected visa sponsorship: ${matchingOption.textContent}`);
+        return;
+      }
+    }
+    
+    if (fieldType === 'gender' && value) {
+      // Look for gender options
+      let matchingOption = options.find(option => 
+        option.value.toLowerCase() === value.toLowerCase() || 
+        option.textContent.toLowerCase() === value.toLowerCase() ||
+        option.textContent.toLowerCase().includes(value.toLowerCase())
+      );
+      if (matchingOption) {
+        selectElement.value = matchingOption.value;
+        selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    ✓ Selected gender: ${matchingOption.textContent}`);
+        return;
+      }
+    }
+    
+    // Generic matching fallback
     // Try exact match first
     let matchingOption = options.find(option => 
       option.value.toLowerCase() === value.toLowerCase() || 
@@ -554,12 +703,20 @@ class JobFlowAutoFill {
     if (matchingOption) {
       selectElement.value = matchingOption.value;
       selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`    ✓ Selected option: ${matchingOption.textContent}`);
+    } else {
+      console.log(`    ✗ No matching option found for value: "${value}"`);
     }
   }
 
   parseResumeText(resumeData) {
     // If resumeData is already parsed, use it
     if (resumeData.fullName && resumeData.email) {
+      // Extract dropdown values from resume text
+      const text = resumeData.extractedText || '';
+      const genderMatch = text.match(/Gender:\s*(Female|Male|Other)/i);
+      const authMatch = text.match(/Authorized\s+to\s+W(?:ork)?/i);
+      
       return {
         fullName: resumeData.fullName,
         firstName: resumeData.firstName || resumeData.fullName?.split(' ')[0] || '',
@@ -582,7 +739,14 @@ class JobFlowAutoFill {
         coverLetter: this.generateCoverLetter(resumeData),
         linkedinUrl: resumeData.linkedinUrl || '',
         githubUrl: resumeData.githubUrl || '',
-        websiteUrl: resumeData.websiteUrl || ''
+        websiteUrl: resumeData.websiteUrl || '',
+        // Dropdown field defaults and extracted values
+        workAuthorization: authMatch ? 'Yes' : 'Yes', // Default to Yes for most cases
+        visaSponsorship: 'No', // Default to No - most people don't need sponsorship
+        gender: genderMatch ? genderMatch[1] : '', // Extract from resume or leave empty
+        ethnicity: '', // Leave empty for voluntary disclosure
+        previousEmployment: 'No', // Default to No for specific company employment
+        familyEmployment: 'No' // Default to No for family members
       };
     }
 
@@ -612,7 +776,14 @@ class JobFlowAutoFill {
       coverLetter: '',
       linkedinUrl: '',
       githubUrl: '',
-      websiteUrl: ''
+      websiteUrl: '',
+      // Dropdown field defaults
+      workAuthorization: 'Yes', // Default to Yes for most cases
+      visaSponsorship: 'No', // Default to No - most people don't need sponsorship
+      gender: '', // Will be extracted from text if available
+      ethnicity: '', // Leave empty for voluntary disclosure
+      previousEmployment: 'No', // Default to No for specific company employment
+      familyEmployment: 'No' // Default to No for family members
     };
 
     // Extract basic info from text
@@ -653,6 +824,17 @@ class JobFlowAutoFill {
       const skillKeywords = ['javascript', 'python', 'react', 'node', 'java', 'sql', 'aws', 'docker'];
       if (skillKeywords.some(skill => line.toLowerCase().includes(skill))) {
         parsed.skills = line;
+      }
+      
+      // Gender extraction
+      const genderMatch = line.match(/Gender:\s*(Female|Male|Other)/i);
+      if (genderMatch) {
+        parsed.gender = genderMatch[1];
+      }
+      
+      // Work authorization extraction
+      if (line.match(/Authorized\s+to\s+W(?:ork)?/i)) {
+        parsed.workAuthorization = 'Yes';
       }
     });
 
