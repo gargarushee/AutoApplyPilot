@@ -216,22 +216,47 @@ class JobFlowAutoFill {
   }
 
   autoFillForms() {
-    if (!this.resumeData) return;
+    console.log('JobFlow: Auto-fill button clicked');
+    
+    if (!this.resumeData) {
+      console.error('JobFlow: No resume data available');
+      this.showStatus('❌ No resume data available', 'error');
+      return;
+    }
 
+    console.log('JobFlow: Resume data available:', this.resumeData);
+    
     const forms = document.querySelectorAll('form');
+    console.log(`JobFlow: Found ${forms.length} forms on page`);
+    
+    if (forms.length === 0) {
+      console.warn('JobFlow: No forms found on page');
+      this.showStatus('❌ No forms found on this page', 'error');
+      return;
+    }
+
     let totalFilled = 0;
 
-    forms.forEach(form => {
-      totalFilled += this.fillForm(form);
+    forms.forEach((form, index) => {
+      console.log(`JobFlow: Processing form ${index + 1}/${forms.length}`);
+      const filledInForm = this.fillForm(form);
+      totalFilled += filledInForm;
+      console.log(`JobFlow: Filled ${filledInForm} fields in form ${index + 1}`);
     });
 
-    this.showStatus(`✓ Auto-filled ${totalFilled} fields`, 'success');
+    console.log(`JobFlow: Total fields filled: ${totalFilled}`);
+    
+    if (totalFilled > 0) {
+      this.showStatus(`✓ Auto-filled ${totalFilled} fields`, 'success');
+    } else {
+      this.showStatus('⚠️ No matching fields found to fill', 'warning');
+    }
     
     // Show success animation
     const fillBtn = document.getElementById('jobflow-fill-btn');
     const originalText = fillBtn.textContent;
-    fillBtn.textContent = '✓ Filled!';
-    fillBtn.style.background = '#10b981';
+    fillBtn.textContent = totalFilled > 0 ? '✓ Filled!' : '⚠️ No matches';
+    fillBtn.style.background = totalFilled > 0 ? '#10b981' : '#f59e0b';
     
     setTimeout(() => {
       fillBtn.textContent = originalText;
@@ -244,6 +269,7 @@ class JobFlowAutoFill {
     
     // Enhanced parsing of resume data from text format
     const parsedData = this.parseResumeText(this.resumeData);
+    console.log('JobFlow: Parsed resume data for form filling:', parsedData);
     
     const fieldMappings = [
       // Name fields (Enhanced for Greenhouse/dynamic forms)
@@ -390,19 +416,42 @@ class JobFlowAutoFill {
       }
     ];
 
+    // Log all available form fields for debugging
+    const allInputs = form.querySelectorAll('input, select, textarea');
+    console.log(`JobFlow: Form has ${allInputs.length} total input fields:`);
+    allInputs.forEach((input, index) => {
+      console.log(`  Field ${index + 1}: ${input.tagName} - name="${input.name}" id="${input.id}" type="${input.type}" placeholder="${input.placeholder}"`);
+    });
+
     fieldMappings.forEach(mapping => {
-      if (!mapping.value) return;
+      if (!mapping.value) {
+        console.log(`JobFlow: Skipping ${mapping.type} - no value available`);
+        return;
+      }
+
+      console.log(`JobFlow: Looking for ${mapping.type} fields with value: "${mapping.value}"`);
+      let foundFields = 0;
 
       mapping.selectors.forEach(selector => {
         const fields = form.querySelectorAll(selector);
+        console.log(`  Selector "${selector}": found ${fields.length} fields`);
+        
         fields.forEach(field => {
+          foundFields++;
+          console.log(`    Found field: ${field.tagName} name="${field.name}" id="${field.id}"`);
+          
           // Skip if already filled (unless low priority)
-          if (field.value.trim() && mapping.priority !== 'low') return;
+          if (field.value.trim() && mapping.priority !== 'low') {
+            console.log(`    Skipping - field already has value: "${field.value}"`);
+            return;
+          }
           
           // Handle different field types
           if (field.tagName.toLowerCase() === 'select') {
+            console.log(`    Filling select field with: "${mapping.value}"`);
             this.fillSelectElement(field, mapping.value);
           } else {
+            console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
             field.value = mapping.value;
           }
           
@@ -418,8 +467,13 @@ class JobFlowAutoFill {
           }, 1000);
           
           filledCount++;
+          console.log(`    ✓ Successfully filled field`);
         });
       });
+
+      if (foundFields === 0) {
+        console.warn(`JobFlow: No fields found for ${mapping.type} using any selector`);
+      }
     });
 
     return filledCount;
