@@ -628,7 +628,7 @@ ${resumeData.fullName || 'Applicant'}`,
         patterns: ['gender', 'sex', 'male.*female', 'identify.*gender', 'select.*gender'],
         selectors: ['select', 'input[type="radio"]'],
         preferredAnswer: resumeAnalysis.gender || '', // Extract from resume or leave empty
-        fallbackAnswers: ['female', 'male', 'prefer not to say', 'decline to answer'],
+        fallbackAnswers: [],
         type: 'gender'
       },
       {
@@ -636,7 +636,7 @@ ${resumeData.fullName || 'Applicant'}`,
         patterns: ['race', 'racial', 'ethnicity', 'ethnic', 'identify.*race', 'please identify', 'racial.*ethnic'],
         selectors: ['select', 'input[type="radio"]'],
         preferredAnswer: '', // Leave empty for voluntary disclosure
-        fallbackAnswers: ['prefer not to say', 'decline to answer', 'not specified'],
+        fallbackAnswers: [],
         type: 'race'
       },
       {
@@ -644,7 +644,7 @@ ${resumeData.fullName || 'Applicant'}`,
         patterns: ['hispanic', 'latino', 'latina', 'latinx', 'spanish.*origin', 'are you hispanic'],
         selectors: ['select', 'input[type="radio"]'],
         preferredAnswer: '', // Leave empty for voluntary disclosure  
-        fallbackAnswers: ['prefer not to say', 'decline to answer', 'no'],
+        fallbackAnswers: [],
         type: 'ethnicity'
       }
     ];
