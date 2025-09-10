@@ -622,6 +622,38 @@ ${resumeData.fullName || 'Applicant'}`,
         preferredAnswer: resumeAnalysis.remoteWorkPreference,
         fallbackAnswers: ['remote', 'hybrid', 'on-site', 'any'],
         type: 'remoteWork'
+      },
+      {
+        // Gender identification
+        patterns: ['gender', 'sex', 'identify.*gender'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.gender || 'Decline To Self Identify',
+        fallbackAnswers: ['male', 'female', 'decline', 'prefer not to say'],
+        type: 'gender'
+      },
+      {
+        // Veteran status
+        patterns: ['veteran', 'military', 'armed forces', 'service member'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.veteranStatus || 'I am not a protected veteran',
+        fallbackAnswers: ['not a veteran', 'no', 'not protected', 'civilian'],
+        type: 'veteranStatus'
+      },
+      {
+        // Disability status
+        patterns: ['disability', 'disabled', 'impairment', 'accommodation'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.disabilityStatus || 'I do not have a disability',
+        fallbackAnswers: ['no', 'do not have', 'not disabled', 'no disability'],
+        type: 'disabilityStatus'
+      },
+      {
+        // Race/Ethnicity
+        patterns: ['race', 'ethnicity', 'ethnic', 'racial'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.ethnicity || 'Decline To Self Identify',
+        fallbackAnswers: ['decline', 'prefer not to say', 'not specified'],
+        type: 'ethnicity'
       }
     ];
 
@@ -1020,6 +1052,52 @@ ${resumeData.fullName || 'Applicant'}`,
       remoteWorkPreference = 'On-site';
     }
     
+    // Demographic information analysis
+    let gender = null;
+    if (text.includes('male') && !text.includes('female')) {
+      gender = 'Male';
+    } else if (text.includes('female')) {
+      gender = 'Female';
+    }
+    // If no gender specified or unclear, will default to 'Decline To Self Identify'
+    
+    let veteranStatus = null;
+    if (text.includes('veteran') || text.includes('military service') || text.includes('armed forces') || 
+        text.includes('navy') || text.includes('army') || text.includes('air force') || text.includes('marines')) {
+      // Check if they indicate they are a protected veteran
+      if (text.includes('disabled veteran') || text.includes('campaign badge') || 
+          text.includes('recently separated') || text.includes('armed forces service medal')) {
+        veteranStatus = 'I identify as one or more of the classifications of protected veteran';
+      } else {
+        veteranStatus = 'I am a veteran, but I am not a protected veteran';
+      }
+    }
+    // If no military service mentioned, will default to 'I am not a protected veteran'
+    
+    let disabilityStatus = null;
+    if (text.includes('disability') || text.includes('disabled') || text.includes('accommodation') || 
+        text.includes('impairment')) {
+      disabilityStatus = 'Yes, I have a disability (or previously had a disability)';
+    }
+    // If no disability mentioned, will default to 'I do not have a disability'
+    
+    let ethnicity = null;
+    // Look for explicit ethnicity mentions in resume
+    if (text.includes('hispanic') || text.includes('latino') || text.includes('latina')) {
+      ethnicity = 'Hispanic or Latino';
+    } else if (text.includes('asian') || text.includes('indian') || text.includes('chinese') || text.includes('japanese')) {
+      ethnicity = 'Asian';
+    } else if (text.includes('black') || text.includes('african american')) {
+      ethnicity = 'Black or African American';
+    } else if (text.includes('white') || text.includes('caucasian')) {
+      ethnicity = 'White';
+    } else if (text.includes('native american') || text.includes('american indian')) {
+      ethnicity = 'American Indian or Alaska Native';
+    } else if (text.includes('pacific islander') || text.includes('hawaiian')) {
+      ethnicity = 'Native Hawaiian or Other Pacific Islander';
+    }
+    // If no ethnicity specified, will default to 'Decline To Self Identify'
+    
     return {
       canWorkInUS,
       needsSponsorship,
@@ -1029,7 +1107,11 @@ ${resumeData.fullName || 'Applicant'}`,
       educationLevel,
       educationFallbacks,
       hasSecurityClearance,
-      remoteWorkPreference
+      remoteWorkPreference,
+      gender,
+      veteranStatus,
+      disabilityStatus,
+      ethnicity
     };
   }
 
