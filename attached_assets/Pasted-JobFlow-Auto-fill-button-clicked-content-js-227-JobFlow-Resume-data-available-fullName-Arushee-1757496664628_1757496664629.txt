@@ -1,0 +1,132 @@
+JobFlow: Auto-fill button clicked
+content.js:227 JobFlow: Resume data available: {fullName: 'Arushee Garg', firstName: 'Arushee', lastName: 'Garg', email: 'argarg@linkedin.com', phone: '+1 (555) 123-4567', …}
+content.js:230 JobFlow: Found 1 forms on page
+content.js:241 JobFlow: Processing form 1/1
+content.js:272 JobFlow: Parsed resume data for form filling: {fullName: 'Arushee Garg', firstName: 'Arushee', lastName: 'Garg', email: 'argarg@linkedin.com', phone: '+1 (555) 123-4567', …}
+content.js:421 JobFlow: Form has 18 total input fields:
+content.js:423   Field 1: INPUT - name="_wpcf7" id="" type="hidden" placeholder=""
+content.js:423   Field 2: INPUT - name="_wpcf7_version" id="" type="hidden" placeholder=""
+content.js:423   Field 3: INPUT - name="_wpcf7_locale" id="" type="hidden" placeholder=""
+content.js:423   Field 4: INPUT - name="_wpcf7_unit_tag" id="" type="hidden" placeholder=""
+content.js:423   Field 5: INPUT - name="_wpcf7_container_post" id="" type="hidden" placeholder=""
+content.js:423   Field 6: INPUT - name="_wpcf7_posted_data_hash" id="" type="hidden" placeholder=""
+content.js:423   Field 7: INPUT - name="your-name" id="" type="text" placeholder=""
+content.js:423   Field 8: INPUT - name="your-email" id="" type="email" placeholder=""
+content.js:423   Field 9: INPUT - name="your-title" id="" type="text" placeholder=""
+content.js:423   Field 10: INPUT - name="your-organization" id="" type="text" placeholder=""
+content.js:423   Field 11: INPUT - name="your-linkedin" id="" type="text" placeholder=""
+content.js:423   Field 12: INPUT - name="your-channel" id="" type="text" placeholder=""
+content.js:423   Field 13: INPUT - name="your-product[]" id="" type="checkbox" placeholder=""
+content.js:423   Field 14: INPUT - name="your-product[]" id="" type="checkbox" placeholder=""
+content.js:423   Field 15: TEXTAREA - name="your-message" id="" type="textarea" placeholder=""
+content.js:423   Field 16: INPUT - name="checkbox-492[]" id="" type="checkbox" placeholder=""
+content.js:423   Field 17: INPUT - name="your-address" id="wpcf7-68c13ffccab7f-field" type="text" placeholder=""
+content.js:423   Field 18: INPUT - name="" id="" type="submit" placeholder=""
+content.js:432 JobFlow: Looking for firstName fields with value: "Arushee"
+content.js:437   Selector "input[name*="first" i]": found 0 fields
+content.js:437   Selector "input[id*="first" i]": found 0 fields
+content.js:437   Selector "input[placeholder*="first" i]": found 0 fields
+content.js:437   Selector "input[data-test*="first" i]": found 0 fields
+content.js:437   Selector "input[aria-label*="first" i]": found 0 fields
+content.js:437   Selector ".first-name input": found 0 fields
+content.js:437   Selector "#first-name": found 0 fields
+content.js:437   Selector "[name="job_application[first_name]"]": found 0 fields
+content.js:475 JobFlow: No fields found for firstName using any selector
+(anonymous) @ content.js:475
+fillForm @ content.js:426
+(anonymous) @ content.js:242
+autoFillForms @ content.js:240
+(anonymous) @ content.js:204Understand this warning
+content.js:432 JobFlow: Looking for lastName fields with value: "Garg"
+content.js:437   Selector "input[name*="last" i]": found 0 fields
+content.js:437   Selector "input[id*="last" i]": found 0 fields
+content.js:437   Selector "input[placeholder*="last" i]": found 0 fields
+content.js:437   Selector "input[data-test*="last" i]": found 0 fields
+content.js:437   Selector "input[aria-label*="last" i]": found 0 fields
+content.js:437   Selector ".last-name input": found 0 fields
+content.js:437   Selector "#last-name": found 0 fields
+content.js:437   Selector "[name="job_application[last_name]"]": found 0 fields
+content.js:475 JobFlow: No fields found for lastName using any selector
+(anonymous) @ content.js:475
+fillForm @ content.js:426
+(anonymous) @ content.js:242
+autoFillForms @ content.js:240
+(anonymous) @ content.js:204Understand this warning
+content.js:432 JobFlow: Looking for fullName fields with value: "Arushee Garg"
+content.js:437   Selector "input[name*="name" i]:not([name*="first" i]):not([name*="last" i])": found 1 fields
+content.js:441     Found field: INPUT name="your-name" id=""
+content.js:454     Filling INPUT field with: "Arushee Garg"
+content.js:470     ✓ Successfully filled field
+content.js:437   Selector "input[id*="name" i]": found 0 fields
+content.js:437   Selector "input[placeholder*="full name" i]": found 0 fields
+content.js:432 JobFlow: Looking for email fields with value: "argarg@linkedin.com"
+content.js:437   Selector "input[type="email"]": found 1 fields
+content.js:441     Found field: INPUT name="your-email" id=""
+content.js:445     Skipping - field already has value: "argarg@linkedin.com"
+content.js:437   Selector "input[name*="email" i]": found 1 fields
+content.js:441     Found field: INPUT name="your-email" id=""
+content.js:445     Skipping - field already has value: "argarg@linkedin.com"
+content.js:437   Selector "input[id*="email" i]": found 0 fields
+content.js:437   Selector "input[placeholder*="email" i]": found 0 fields
+content.js:437   Selector "input[data-test*="email" i]": found 0 fields
+content.js:437   Selector "input[aria-label*="email" i]": found 0 fields
+content.js:437   Selector ".email input": found 0 fields
+content.js:437   Selector "#email": found 0 fields
+content.js:437   Selector "[name="job_application[email]"]": found 0 fields
+content.js:432 JobFlow: Looking for phone fields with value: "+1 (555) 123-4567"
+content.js:437   Selector "input[type="tel"]": found 0 fields
+content.js:437   Selector "input[name*="phone" i]": found 0 fields
+content.js:437   Selector "input[id*="phone" i]": found 0 fields
+content.js:437   Selector "input[placeholder*="phone" i]": found 0 fields
+content.js:437   Selector "input[data-test*="phone" i]": found 0 fields
+content.js:437   Selector "input[aria-label*="phone" i]": found 0 fields
+content.js:437   Selector ".phone input": found 0 fields
+content.js:437   Selector "#phone": found 0 fields
+content.js:437   Selector "[name="job_application[phone]"]": found 0 fields
+content.js:475 JobFlow: No fields found for phone using any selector
+(anonymous) @ content.js:475
+fillForm @ content.js:426
+(anonymous) @ content.js:242
+autoFillForms @ content.js:240
+(anonymous) @ content.js:204Understand this warning
+content.js:428 JobFlow: Skipping address - no value available
+content.js:428 JobFlow: Skipping city - no value available
+content.js:428 JobFlow: Skipping zipCode - no value available
+content.js:428 JobFlow: Skipping yearsOfExperience - no value available
+content.js:428 JobFlow: Skipping workExperience - no value available
+content.js:428 JobFlow: Skipping currentTitle - no value available
+content.js:428 JobFlow: Skipping currentCompany - no value available
+content.js:428 JobFlow: Skipping skills - no value available
+content.js:428 JobFlow: Skipping school - no value available
+content.js:428 JobFlow: Skipping degree - no value available
+content.js:428 JobFlow: Skipping fieldOfStudy - no value available
+content.js:428 JobFlow: Skipping gpa - no value available
+content.js:428 JobFlow: Skipping education - no value available
+content.js:432 JobFlow: Looking for coverLetter fields with value: "Dear Hiring Manager,
+
+I am writing to express my interest in this position. With several years of experience in , I am confident that I would be a valuable addition to your team.
+
+In my current role, I have developed strong skills in .
+
+I am excited about the opportunity to contribute to your organization and would welcome the chance to discuss how my experience aligns with your needs.
+
+Best regards,
+Arushee Garg"
+content.js:437   Selector "textarea[name*="cover" i]": found 0 fields
+content.js:437   Selector "textarea[name*="letter" i]": found 0 fields
+content.js:437   Selector "textarea[name*="motivation" i]": found 0 fields
+content.js:437   Selector "textarea[name*="why" i]": found 0 fields
+content.js:475 JobFlow: No fields found for coverLetter using any selector
+(anonymous) @ content.js:475
+fillForm @ content.js:426
+(anonymous) @ content.js:242
+autoFillForms @ content.js:240
+(anonymous) @ content.js:204Understand this warning
+content.js:428 JobFlow: Skipping linkedinUrl - no value available
+content.js:428 JobFlow: Skipping githubUrl - no value available
+content.js:428 JobFlow: Skipping websiteUrl - no value available
+content.js:244 JobFlow: Filled 1 fields in form 1
+content.js:247 JobFlow: Total fields filled: 1
+record.js:2422 [Report Only] Refused to apply inline style because it violates the following Content Security Policy directive: "style-src 'self'". Either the 'unsafe-inline' keyword, a hash ('sha256-p+lloGXiEXWa9eKhBgtloijj3pk73v3Uv+RoWhscFYc='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present.
+
+record.js:2422 [Report Only] Refused to apply inline style because it violates the following Content Security Policy directive: "style-src 'self'". Either the 'unsafe-inline' keyword, a hash ('sha256-8GX42N9I30lQEeu1mg8/2slNzgI5SDhtZsp9WMYrJjM='), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present.

@@ -98,9 +98,31 @@ class JobFlowAutoFill {
 
   detectForms() {
     const forms = document.querySelectorAll('form');
-    if (forms.length > 0 && this.resumeData) {
-      console.log(`JobFlow: Detected ${forms.length} forms on this page`);
-      this.showNotification(`Found ${forms.length} form(s) ready to auto-fill`);
+    
+    // Filter to find the actual job application form (not newsletter/contact forms)
+    const jobApplicationForms = Array.from(forms).filter(form => {
+      const inputs = form.querySelectorAll('input, textarea');
+      const hasJobAppFields = Array.from(inputs).some(input => 
+        input.placeholder && (
+          input.placeholder.toLowerCase().includes('first name') ||
+          input.placeholder.toLowerCase().includes('last name') ||
+          input.type === 'file' ||
+          (input.type === 'email' && !input.name.includes('newsletter'))
+        )
+      ) || form.innerHTML.includes('First Name') || form.innerHTML.includes('Resume/CV');
+      
+      const notNewsletterForm = !form.innerHTML.toLowerCase().includes('newsletter') &&
+                               !form.innerHTML.toLowerCase().includes('job alert') &&
+                               !form.querySelector('input[name*="your-"]');
+      
+      return hasJobAppFields && notNewsletterForm;
+    });
+    
+    console.log(`JobFlow: Detected ${forms.length} total forms, ${jobApplicationForms.length} job application forms`);
+    
+    if (jobApplicationForms.length > 0 && this.resumeData) {
+      this.jobApplicationForms = jobApplicationForms;
+      this.showNotification(`Found ${jobApplicationForms.length} job application form(s) ready to auto-fill`);
       this.createFloatingButton();
       return true;
     }
@@ -237,8 +259,11 @@ class JobFlowAutoFill {
 
     let totalFilled = 0;
 
-    forms.forEach((form, index) => {
-      console.log(`JobFlow: Processing form ${index + 1}/${forms.length}`);
+    // Use job application forms if available, otherwise fall back to all forms
+    const formsToFill = this.jobApplicationForms || forms;
+    
+    Array.from(formsToFill).forEach((form, index) => {
+      console.log(`JobFlow: Processing form ${index + 1}/${formsToFill.length}`);
       const filledInForm = this.fillForm(form);
       totalFilled += filledInForm;
       console.log(`JobFlow: Filled ${filledInForm} fields in form ${index + 1}`);
@@ -272,19 +297,22 @@ class JobFlowAutoFill {
     console.log('JobFlow: Parsed resume data for form filling:', parsedData);
     
     const fieldMappings = [
-      // Name fields (Enhanced for Greenhouse/dynamic forms)
+      // Name fields (Enhanced for Greenhouse/dynamic forms with specific Greenhouse selectors)
       { 
         selectors: [
-          'input[name*="first" i]', 'input[id*="first" i]', 'input[placeholder*="first" i]',
+          'input[placeholder*="First Name" i]', 'input[placeholder*="first name" i]',
+          'input[name*="first" i]', 'input[id*="first" i]', 
           'input[data-test*="first" i]', 'input[aria-label*="first" i]',
-          '.first-name input', '#first-name', '[name="job_application[first_name]"]'
+          '.first-name input', '#first-name', '[name="job_application[first_name]"]',
+          'input[type="text"]:not([name*="last"]):not([name*="email"]):not([name*="phone"])'
         ], 
         value: parsedData.firstName,
         type: 'firstName'
       },
       { 
         selectors: [
-          'input[name*="last" i]', 'input[id*="last" i]', 'input[placeholder*="last" i]',
+          'input[placeholder*="Last Name" i]', 'input[placeholder*="last name" i]',
+          'input[name*="last" i]', 'input[id*="last" i]',
           'input[data-test*="last" i]', 'input[aria-label*="last" i]',
           '.last-name input', '#last-name', '[name="job_application[last_name]"]'
         ], 
@@ -298,10 +326,13 @@ class JobFlowAutoFill {
         priority: 'low'
       },
       
-      // Contact fields (Enhanced for Greenhouse/dynamic forms)
+      // Contact fields (Enhanced for Greenhouse/dynamic forms - exclude newsletter forms)
       { 
         selectors: [
-          'input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]', 'input[placeholder*="email" i]',
+          'input[type="email"]:not([name*="your-"]):not([name*="newsletter"])',
+          'input[placeholder*="Email" i]:not([name*="your-"])', 
+          'input[name*="email" i]:not([name*="your-"]):not([name*="newsletter"])', 
+          'input[id*="email" i]:not([name*="your-"])',
           'input[data-test*="email" i]', 'input[aria-label*="email" i]',
           '.email input', '#email', '[name="job_application[email]"]'
         ], 
@@ -310,7 +341,8 @@ class JobFlowAutoFill {
       },
       { 
         selectors: [
-          'input[type="tel"]', 'input[name*="phone" i]', 'input[id*="phone" i]', 'input[placeholder*="phone" i]',
+          'input[placeholder*="Phone" i]', 'input[type="tel"]', 
+          'input[name*="phone" i]', 'input[id*="phone" i]',
           'input[data-test*="phone" i]', 'input[aria-label*="phone" i]',
           '.phone input', '#phone', '[name="job_application[phone]"]'
         ], 
