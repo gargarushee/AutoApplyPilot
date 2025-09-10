@@ -10,22 +10,21 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      
+
       <div className="pl-64">
         <Header />
-        
+
         <main className="p-6">
           <StatsCards />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div className="lg:col-span-2 space-y-6">
               <QuickApply />
+              <ApplicationsTable />
               <ExtensionInstaller />
+              <RecentActivity />
             </div>
-            <RecentActivity />
           </div>
-          
-          <ApplicationsTable />
         </main>
       </div>
     </div>

@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { PaperPlaneIcon, ClockIcon, CheckCircledIcon, StopwatchIcon } from "@radix-ui/react-icons";
+import { PaperPlaneIcon, ClockIcon, CheckCircledIcon } from "@radix-ui/react-icons";
 
 export function StatsCards() {
   const { data: stats, isLoading } = useQuery<{
     totalApplications: number;
     pendingReview: number;
     successRate: number;
-    timeSaved: number;
   }>({
     queryKey: ['/api/dashboard/stats'],
   });
@@ -29,8 +28,7 @@ export function StatsCards() {
   const statsData = stats || {
     totalApplications: 0,
     pendingReview: 0,
-    successRate: 0,
-    timeSaved: 0
+    successRate: 0
   };
 
   return (
@@ -85,23 +83,6 @@ export function StatsCards() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Auto-fill accuracy</p>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Time Saved</p>
-              <p className="text-2xl font-bold text-foreground" data-testid="stat-time-saved">
-                {statsData.timeSaved}h
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center">
-              <StopwatchIcon className="text-blue-600 h-6 w-6" />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">This month</p>
         </CardContent>
       </Card>
     </div>
