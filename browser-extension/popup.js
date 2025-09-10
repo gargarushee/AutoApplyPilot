@@ -622,6 +622,30 @@ ${resumeData.fullName || 'Applicant'}`,
         preferredAnswer: resumeAnalysis.remoteWorkPreference,
         fallbackAnswers: ['remote', 'hybrid', 'on-site', 'any'],
         type: 'remoteWork'
+      },
+      {
+        // Gender selection (voluntary disclosure)
+        patterns: ['gender', 'sex', 'male.*female', 'identify.*gender', 'select.*gender'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.gender || '', // Extract from resume or leave empty
+        fallbackAnswers: ['female', 'male', 'prefer not to say', 'decline to answer'],
+        type: 'gender'
+      },
+      {
+        // Race/ethnicity selection (voluntary disclosure)
+        patterns: ['race', 'racial', 'ethnicity', 'ethnic', 'identify.*race', 'please identify', 'racial.*ethnic'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: '', // Leave empty for voluntary disclosure
+        fallbackAnswers: ['prefer not to say', 'decline to answer', 'not specified'],
+        type: 'race'
+      },
+      {
+        // Hispanic/Latino ethnicity (voluntary disclosure)
+        patterns: ['hispanic', 'latino', 'latina', 'latinx', 'spanish.*origin', 'are you hispanic'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: '', // Leave empty for voluntary disclosure  
+        fallbackAnswers: ['prefer not to say', 'decline to answer', 'no'],
+        type: 'ethnicity'
       }
     ];
 
@@ -1020,6 +1044,20 @@ ${resumeData.fullName || 'Applicant'}`,
       remoteWorkPreference = 'On-site';
     }
     
+    // Gender extraction from resume
+    let gender = '';
+    const genderMatch = text.match(/gender:\s*(fe(?:male)?|male|m|f|other)/i);
+    if (genderMatch) {
+      const extractedGender = genderMatch[1].toLowerCase();
+      if (extractedGender.startsWith('fe') || extractedGender === 'f') {
+        gender = 'Female';
+      } else if (extractedGender.startsWith('male') || extractedGender === 'm') {
+        gender = 'Male';
+      } else {
+        gender = genderMatch[1];
+      }
+    }
+    
     return {
       canWorkInUS,
       needsSponsorship,
@@ -1029,7 +1067,8 @@ ${resumeData.fullName || 'Applicant'}`,
       educationLevel,
       educationFallbacks,
       hasSecurityClearance,
-      remoteWorkPreference
+      remoteWorkPreference,
+      gender
     };
   }
 
