@@ -68,10 +68,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("Background received message:", request);
 
   if (request.action === "getResumeData") {
-    // Fetch resume data from JobFlow API
-    fetch(
-      "https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/api/bookmarklet/resume-data",
-    )
+    // Fetch resume data from JobFlow API - use dynamic URL based on current deployment
+    const apiUrl = `${sender.tab?.url ? new URL(sender.tab.url).origin : 'http://localhost:5000'}/api/bookmarklet/resume-data`;
+    fetch(apiUrl)
       .then((response) => response.json())
       .then((data) => {
         sendResponse({ success: true, data });
