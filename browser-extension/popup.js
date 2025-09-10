@@ -159,7 +159,7 @@ class JobFlowPopup {
       // Inject and run auto-fill script
       const results = await chrome.scripting.executeScript({
         target: { tabId: this.currentTab.id },
-        function: this.executeAutoFill,
+        function: executeAutoFillScript,
         args: [this.resumeData]
       });
 
@@ -189,142 +189,6 @@ class JobFlowPopup {
     }
   }
 
-  executeAutoFill(resumeData) {
-    // This function runs in the context of the web page
-    let totalFilled = 0;
-    const forms = document.querySelectorAll('form');
-
-    // Enhanced parsing of resume data from text format
-    const parsedData = this.parseResumeText(resumeData);
-
-    forms.forEach(form => {
-      const fieldMappings = [
-        // Name fields
-        { 
-          selectors: ['input[name*="first" i]', 'input[id*="first" i]', 'input[placeholder*="first" i]'], 
-          value: parsedData.firstName
-        },
-        { 
-          selectors: ['input[name*="last" i]', 'input[id*="last" i]', 'input[placeholder*="last" i]'], 
-          value: parsedData.lastName
-        },
-        { 
-          selectors: ['input[name*="name" i]:not([name*="first" i]):not([name*="last" i])', 'input[id*="name" i]', 'input[placeholder*="full name" i]'], 
-          value: parsedData.fullName
-        },
-        
-        // Contact fields
-        { 
-          selectors: ['input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]', 'input[placeholder*="email" i]'], 
-          value: parsedData.email
-        },
-        { 
-          selectors: ['input[type="tel"]', 'input[name*="phone" i]', 'input[id*="phone" i]', 'input[placeholder*="phone" i]'], 
-          value: parsedData.phone
-        },
-        
-        // Address fields
-        { 
-          selectors: ['input[name*="address" i]', 'input[id*="address" i]', 'input[placeholder*="address" i]'], 
-          value: parsedData.address
-        },
-        { 
-          selectors: ['input[name*="city" i]', 'input[id*="city" i]', 'input[placeholder*="city" i]'], 
-          value: parsedData.city
-        },
-        { 
-          selectors: ['input[name*="zip" i]', 'input[name*="postal" i]', 'input[id*="zip" i]'], 
-          value: parsedData.zipCode
-        },
-        
-        // Experience fields
-        { 
-          selectors: ['input[name*="years" i]', 'input[id*="years" i]', 'select[name*="years" i]'], 
-          value: parsedData.yearsOfExperience
-        },
-        { 
-          selectors: ['textarea[name*="experience" i]', 'textarea[id*="experience" i]', 'textarea[placeholder*="experience" i]'], 
-          value: parsedData.workExperience
-        },
-        { 
-          selectors: ['input[name*="position" i]', 'input[name*="title" i]', 'input[id*="position" i]'], 
-          value: parsedData.currentTitle
-        },
-        { 
-          selectors: ['input[name*="company" i]', 'input[id*="company" i]', 'input[placeholder*="company" i]'], 
-          value: parsedData.currentCompany
-        },
-        
-        // Skills fields
-        { 
-          selectors: ['textarea[name*="skill" i]', 'textarea[id*="skill" i]', 'textarea[placeholder*="skill" i]'], 
-          value: parsedData.skills
-        },
-        
-        // Education fields
-        { 
-          selectors: ['input[name*="school" i]', 'input[name*="university" i]', 'input[id*="school" i]'], 
-          value: parsedData.school
-        },
-        { 
-          selectors: ['input[name*="degree" i]', 'input[id*="degree" i]', 'select[name*="degree" i]'], 
-          value: parsedData.degree
-        },
-        { 
-          selectors: ['input[name*="major" i]', 'input[name*="field" i]', 'input[id*="major" i]'], 
-          value: parsedData.fieldOfStudy
-        },
-        { 
-          selectors: ['input[name*="gpa" i]', 'input[id*="gpa" i]'], 
-          value: parsedData.gpa
-        },
-        
-        // Cover letter / motivation
-        { 
-          selectors: ['textarea[name*="cover" i]', 'textarea[name*="letter" i]', 'textarea[name*="motivation" i]', 'textarea[name*="why" i]'], 
-          value: parsedData.coverLetter
-        },
-        
-        // Links
-        { 
-          selectors: ['input[name*="linkedin" i]', 'input[id*="linkedin" i]', 'input[placeholder*="linkedin" i]'], 
-          value: parsedData.linkedinUrl
-        },
-        { 
-          selectors: ['input[name*="github" i]', 'input[id*="github" i]', 'input[placeholder*="github" i]'], 
-          value: parsedData.githubUrl
-        },
-        { 
-          selectors: ['input[name*="website" i]', 'input[name*="portfolio" i]', 'input[id*="website" i]'], 
-          value: parsedData.websiteUrl
-        }
-      ];
-
-      fieldMappings.forEach(mapping => {
-        if (!mapping.value) return;
-
-        mapping.selectors.forEach(selector => {
-          const fields = form.querySelectorAll(selector);
-          fields.forEach(field => {
-            if (field.value.trim()) return; // Skip filled fields
-            
-            if (field.tagName.toLowerCase() === 'select') {
-              // Handle select dropdowns
-              this.fillSelectElement(field, mapping.value);
-            } else {
-              field.value = mapping.value;
-              field.dispatchEvent(new Event('input', { bubbles: true }));
-              field.dispatchEvent(new Event('change', { bubbles: true }));
-              field.dispatchEvent(new Event('blur', { bubbles: true }));
-            }
-            totalFilled++;
-          });
-        });
-      });
-    });
-
-    return totalFilled;
-  }
 
   fillSelectElement(selectElement, value) {
     const options = Array.from(selectElement.options);
@@ -478,7 +342,153 @@ Experience: ${this.resumeData.experience ? this.resumeData.experience.substring(
   }
 }
 
-// Standalone function for script injection (must be outside the class)
+// Standalone functions for script injection (must be outside the class)
+
+// Auto-fill function that runs in page context
+function executeAutoFillScript(resumeData) {
+  // This function runs in the context of the web page
+  let totalFilled = 0;
+  const forms = document.querySelectorAll('form');
+
+  // Parse resume data for form filling (inline parsing)
+  const parsedData = {
+    fullName: resumeData.fullName || '',
+    firstName: resumeData.firstName || (resumeData.fullName ? resumeData.fullName.split(' ')[0] : ''),
+    lastName: resumeData.lastName || (resumeData.fullName ? resumeData.fullName.split(' ').slice(1).join(' ') : ''),
+    email: resumeData.email || '',
+    phone: resumeData.phone || '',
+    address: resumeData.address || '',
+    city: resumeData.city || '',
+    zipCode: resumeData.zipCode || '',
+    yearsOfExperience: resumeData.yearsOfExperience || '',
+    workExperience: resumeData.experience || '',
+    currentTitle: resumeData.currentTitle || '',
+    currentCompany: resumeData.currentCompany || '',
+    skills: Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || ''),
+    school: resumeData.school || '',
+    degree: resumeData.degree || '',
+    fieldOfStudy: resumeData.fieldOfStudy || '',
+    gpa: resumeData.gpa || '',
+    education: resumeData.education || '',
+    coverLetter: resumeData.coverLetter || `Dear Hiring Manager,
+
+I am writing to express my interest in this position. With several years of experience in the technology industry, I am confident that I would be a valuable addition to your team.
+
+In my current role, I have developed strong skills in software development and problem-solving.
+
+I am excited about the opportunity to contribute to your organization and would welcome the chance to discuss how my experience aligns with your needs.
+
+Best regards,
+${resumeData.fullName || 'Applicant'}`,
+    linkedinUrl: resumeData.linkedinUrl || '',
+    githubUrl: resumeData.githubUrl || '',
+    websiteUrl: resumeData.websiteUrl || ''
+  };
+
+  console.log('JobFlow: Auto-fill script executing with data:', parsedData);
+
+  forms.forEach((form, formIndex) => {
+    console.log(`JobFlow: Processing form ${formIndex + 1}/${forms.length}`);
+    
+    const fieldMappings = [
+      // Enhanced Greenhouse-specific selectors
+      { 
+        selectors: [
+          'input[placeholder*="First Name" i]', 'input[placeholder*="first name" i]',
+          'input[name*="first" i]', 'input[id*="first" i]'
+        ], 
+        value: parsedData.firstName,
+        type: 'firstName'
+      },
+      { 
+        selectors: [
+          'input[placeholder*="Last Name" i]', 'input[placeholder*="last name" i]',
+          'input[name*="last" i]', 'input[id*="last" i]'
+        ], 
+        value: parsedData.lastName,
+        type: 'lastName'
+      },
+      { 
+        selectors: [
+          'input[placeholder*="Email" i]', 'input[type="email"]',
+          'input[name*="email" i]', 'input[id*="email" i]'
+        ], 
+        value: parsedData.email,
+        type: 'email'
+      },
+      { 
+        selectors: [
+          'input[placeholder*="Phone" i]', 'input[type="tel"]',
+          'input[name*="phone" i]', 'input[id*="phone" i]'
+        ], 
+        value: parsedData.phone,
+        type: 'phone'
+      },
+      { 
+        selectors: [
+          'input[placeholder*="LinkedIn" i]', 'textarea[placeholder*="LinkedIn" i]',
+          'input[name*="linkedin" i]', 'input[id*="linkedin" i]'
+        ], 
+        value: parsedData.linkedinUrl,
+        type: 'linkedin'
+      }
+    ];
+
+    fieldMappings.forEach(mapping => {
+      if (!mapping.value) {
+        console.log(`JobFlow: Skipping ${mapping.type} - no value available`);
+        return;
+      }
+
+      console.log(`JobFlow: Looking for ${mapping.type} fields with value: "${mapping.value}"`);
+      let foundFields = 0;
+
+      mapping.selectors.forEach(selector => {
+        const fields = form.querySelectorAll(selector);
+        console.log(`  Selector "${selector}": found ${fields.length} fields`);
+        
+        fields.forEach(field => {
+          console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}"`);
+          
+          if (field.value && field.value.trim()) {
+            console.log(`    Skipping - field already has value: "${field.value}"`);
+            return;
+          }
+          
+          if (field.tagName.toLowerCase() === 'select') {
+            // Handle select dropdowns
+            const options = field.querySelectorAll('option');
+            for (let option of options) {
+              if (option.textContent.toLowerCase().includes(mapping.value.toLowerCase())) {
+                field.value = option.value;
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+                break;
+              }
+            }
+          } else {
+            console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
+            field.value = mapping.value;
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            field.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
+          
+          foundFields++;
+          totalFilled++;
+          console.log(`    ✓ Successfully filled field`);
+        });
+      });
+
+      if (foundFields === 0) {
+        console.log(`JobFlow: No fields found for ${mapping.type} using any selector`);
+      }
+    });
+  });
+
+  console.log(`JobFlow: Total fields filled: ${totalFilled}`);
+  return totalFilled;
+}
+
 function checkForJobFormsScript() {
   // This function runs in the context of the web page
   const url = window.location.href.toLowerCase();
