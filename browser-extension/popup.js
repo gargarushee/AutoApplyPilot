@@ -482,10 +482,33 @@ ${resumeData.fullName || 'Applicant'}`,
   const jobApplicationForms = Array.from(forms).filter(form => {
     const hasContactFields = form.querySelector('input[name*="your-"]');
     const formText = form.innerHTML.toLowerCase();
+    
+    // Check for Greenhouse indicators (more flexible for Greenhouse forms)
+    const isGreenhouseForm = formText.includes('greenhouse') || 
+                           document.body.innerHTML.toLowerCase().includes('greenhouse') ||
+                           window.location.href.includes('greenhouse');
+    
+    // Original job app structure check
     const hasJobAppStructure = formText.includes('first name') && formText.includes('last name') && formText.includes('resume');
     
-    console.log('Form filtering:', { hasContactFields: !!hasContactFields, hasJobAppStructure });
-    return !hasContactFields && hasJobAppStructure;
+    // More flexible structure check for modern job sites
+    const hasFlexibleJobStructure = (formText.includes('name') || formText.includes('email')) && 
+                                  (formText.includes('resume') || formText.includes('cv') || 
+                                   formText.includes('education') || formText.includes('experience') ||
+                                   formText.includes('application'));
+    
+    // Accept form if it's Greenhouse OR has job app structure OR has flexible structure
+    const shouldProcess = !hasContactFields && (isGreenhouseForm || hasJobAppStructure || hasFlexibleJobStructure);
+    
+    console.log('JobFlow: Form filtering:', { 
+      hasContactFields: !!hasContactFields, 
+      isGreenhouseForm,
+      hasJobAppStructure, 
+      hasFlexibleJobStructure,
+      shouldProcess 
+    });
+    
+    return shouldProcess;
   });
 
   console.log(`JobFlow: Filtered to ${jobApplicationForms.length} job application forms`);
@@ -846,15 +869,9 @@ ${resumeData.fullName || 'Applicant'}`,
             }
             
             if (field.tagName.toLowerCase() === 'select') {
-              // Handle select dropdowns
-              const options = field.querySelectorAll('option');
-              for (let option of options) {
-                if (option.textContent.toLowerCase().includes(mapping.value.toLowerCase())) {
-                  field.value = option.value;
-                  field.dispatchEvent(new Event('change', { bubbles: true }));
-                  break;
-                }
-              }
+              // Use enhanced select element filling with field type
+              console.log(`    Using enhanced select filling for ${mapping.type}`);
+              autoFiller.fillSelectElement(field, mapping.value, mapping.type);
             } else {
               console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
               field.value = mapping.value;
