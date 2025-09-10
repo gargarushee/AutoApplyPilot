@@ -78,12 +78,6 @@ class JobFlowAutoFill {
   }
 
   async loadResumeData() {
-    // Don't reload if we already have resume data
-    if (this.resumeData) {
-      console.log('JobFlow: Resume data already loaded, skipping fetch');
-      return;
-    }
-
     try {
       // Use Chrome messaging to get resume data from background script (avoids CORS)
       const response = await chrome.runtime.sendMessage({ action: 'getResumeData' });
@@ -94,7 +88,6 @@ class JobFlowAutoFill {
           return;
         }
         this.resumeData = response.data;
-        console.log('JobFlow: Resume data loaded successfully');
       } else {
         console.warn('JobFlow: No resume data available');
       }

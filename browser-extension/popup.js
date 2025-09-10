@@ -1,11 +1,861 @@
-// Auto-fill function that runs in page context (all functions defined at top)
+// JobFlow Auto-Fill Extension Popup
+
+class JobFlowPopup {
+  constructor() {
+    this.resumeData = null;
+    this.currentTab = null;
+  }
+
+  async init() {
+    await this.getCurrentTab();
+    await this.loadResumeData();
+    await this.checkPageStatus();
+    this.setupEventListeners();
+  }
+
+  async getCurrentTab() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    this.currentTab = tab;
+  }
+
+  async loadResumeData() {
+    try {
+      // Use Chrome messaging to get resume data from background script (avoids CORS)
+      const response = await chrome.runtime.sendMessage({ action: 'getResumeData' });
+      
+      if (response && response.success && response.data) {
+        if (response.data.error) {
+          this.showState('no-resume');
+          return;
+        }
+        this.resumeData = response.data;
+        this.showState('ready');
+        this.updateResumeInfo();
+      } else {
+        this.showState('no-resume');
+      }
+    } catch (error) {
+      console.error('Failed to load resume data:', error);
+      this.showState('error');
+    }
+  }
+
+  async checkPageStatus() {
+    if (!this.currentTab || !this.resumeData) return;
+
+    try {
+      // Inject content script to check for forms
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: this.currentTab.id },
+        function: checkForJobFormsScript
+      });
+
+      const pageInfo = results && results[0] && results[0].result 
+        ? results[0].result 
+        : { isJobPage: false, formsFound: 0 };
+      this.updatePageStatus(pageInfo);
+    } catch (error) {
+      console.error('Failed to check page status:', error);
+      this.updatePageStatus({ isJobPage: false, formsFound: 0 });
+    }
+  }
+
+
+  showState(state) {
+    // Hide all states
+    document.querySelectorAll('.state-container, .loading-state').forEach(el => {
+      el.style.display = 'none';
+    });
+
+    // Show specific state
+    const stateMap = {
+      'loading': 'loading-state',
+      'no-resume': 'no-resume-state',
+      'ready': 'ready-state',
+      'error': 'error-state'
+    };
+
+    const elementId = stateMap[state];
+    if (elementId) {
+      document.getElementById(elementId).style.display = 'block';
+    }
+  }
+
+  updateResumeInfo() {
+    if (!this.resumeData) return;
+
+    document.getElementById('resume-name').textContent = this.resumeData.filename || 'Unknown Resume';
+    document.getElementById('resume-user').textContent = 
+      `${this.resumeData.fullName || 'Unknown'} • ${this.resumeData.email || 'No email'}`;
+  }
+
+  updatePageStatus(pageInfo) {
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    const autoFillBtn = document.getElementById('auto-fill-btn');
+    const statsElement = document.getElementById('stats');
+
+    // Ensure pageInfo is valid and has required properties
+    if (!pageInfo || typeof pageInfo !== 'object') {
+      pageInfo = { isJobPage: false, formsFound: 0 };
+    }
+
+    const isJobPage = pageInfo.isJobPage === true;
+    const formsFound = pageInfo.formsFound || 0;
+
+    if (isJobPage && formsFound > 0) {
+      statusIndicator.className = 'status-indicator ready';
+      statusText.textContent = 'Job application page detected';
+      autoFillBtn.disabled = false;
+      
+      // Show stats
+      document.getElementById('forms-found').textContent = formsFound;
+      statsElement.style.display = 'flex';
+    } else if (isJobPage) {
+      statusIndicator.className = 'status-indicator warning';
+      statusText.textContent = 'Job page detected, no forms found';
+      autoFillBtn.disabled = true;
+    } else {
+      statusIndicator.className = 'status-indicator inactive';
+      statusText.textContent = 'Not a job application page';
+      autoFillBtn.disabled = true;
+    }
+  }
+
+  setupEventListeners() {
+    // Auto-fill button
+    document.getElementById('auto-fill-btn').addEventListener('click', async () => {
+      await this.triggerAutoFill();
+    });
+
+    // Preview button
+    document.getElementById('preview-btn').addEventListener('click', () => {
+      this.showPreview();
+    });
+
+    // Dashboard links
+    document.getElementById('open-dashboard-btn').addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/' });
+    });
+
+    document.getElementById('dashboard-link').addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://66b0dabc-42e9-4daf-ac7b-fcbb39401103-00-297d8ia1kql4j.worf.replit.dev/' });
+    });
+
+    // Retry button
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      this.init();
+    });
+  }
+
+  async triggerAutoFill() {
+    if (!this.currentTab) return;
+
+    const button = document.getElementById('auto-fill-btn');
+    button.disabled = true;
+    button.textContent = 'Filling...';
+
+    try {
+      // Inject and run auto-fill script
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: this.currentTab.id },
+        function: executeAutoFillScript,
+        args: [this.resumeData]
+      });
+
+      const filledCount = results[0].result;
+      document.getElementById('fields-filled').textContent = filledCount;
+
+      // Success feedback
+      button.textContent = '✓ Filled!';
+      button.style.background = '#10b981';
+      
+      setTimeout(() => {
+        button.textContent = 'Auto-Fill Forms';
+        button.style.background = '';
+        button.disabled = false;
+      }, 2000);
+
+    } catch (error) {
+      console.error('Auto-fill failed:', error);
+      button.textContent = 'Failed';
+      button.style.background = '#ef4444';
+      
+      setTimeout(() => {
+        button.textContent = 'Auto-Fill Forms';
+        button.style.background = '';
+        button.disabled = false;
+      }, 2000);
+    }
+  }
+
+
+  fillSelectElement(selectElement, value) {
+    const options = Array.from(selectElement.options);
+    
+    // Try exact match first
+    let matchingOption = options.find(option => 
+      option.value.toLowerCase() === value.toLowerCase() || 
+      option.textContent.toLowerCase() === value.toLowerCase()
+    );
+    
+    // Try partial match
+    if (!matchingOption && value) {
+      matchingOption = options.find(option => 
+        option.value.toLowerCase().includes(value.toLowerCase()) || 
+        option.textContent.toLowerCase().includes(value.toLowerCase())
+      );
+    }
+    
+    if (matchingOption) {
+      selectElement.value = matchingOption.value;
+      selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  parseResumeText(resumeData) {
+    // If resumeData is already parsed, use it
+    if (resumeData.fullName && resumeData.email) {
+      return {
+        fullName: resumeData.fullName,
+        firstName: resumeData.firstName || resumeData.fullName?.split(' ')[0] || '',
+        lastName: resumeData.lastName || resumeData.fullName?.split(' ').slice(-1)[0] || '',
+        email: resumeData.email,
+        phone: resumeData.phone,
+        address: resumeData.address || '',
+        city: resumeData.city || '',
+        zipCode: resumeData.zipCode || '',
+        yearsOfExperience: resumeData.yearsOfExperience || resumeData.experience || '',
+        workExperience: resumeData.workExperience || resumeData.experience || '',
+        currentTitle: resumeData.currentTitle || '',
+        currentCompany: resumeData.currentCompany || '',
+        skills: Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : resumeData.skills || '',
+        school: resumeData.school || resumeData.education || '',
+        degree: resumeData.degree || '',
+        fieldOfStudy: resumeData.fieldOfStudy || resumeData.major || '',
+        gpa: resumeData.gpa || '',
+        coverLetter: this.generateCoverLetter(resumeData),
+        linkedinUrl: resumeData.linkedinUrl || '',
+        githubUrl: resumeData.githubUrl || '',
+        websiteUrl: resumeData.websiteUrl || ''
+      };
+    }
+
+    // Parse from raw text if needed
+    const text = resumeData.extractedText || '';
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    const parsed = {
+      fullName: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      zipCode: '',
+      yearsOfExperience: '',
+      workExperience: '',
+      currentTitle: '',
+      currentCompany: '',
+      skills: '',
+      school: '',
+      degree: '',
+      fieldOfStudy: '',
+      gpa: '',
+      coverLetter: '',
+      linkedinUrl: '',
+      githubUrl: '',
+      websiteUrl: ''
+    };
+
+    // Extract basic info from text
+    lines.forEach((line, index) => {
+      // Name (usually first line)
+      if (index === 0 && /^[A-Za-z\s]+$/.test(line) && line.split(' ').length >= 2) {
+        parsed.fullName = line;
+        const nameParts = line.split(' ');
+        parsed.firstName = nameParts[0];
+        parsed.lastName = nameParts[nameParts.length - 1];
+      }
+      
+      // Email
+      const emailMatch = line.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      if (emailMatch) parsed.email = emailMatch[0];
+      
+      // Phone
+      const phoneMatch = line.match(/(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/);
+      if (phoneMatch) parsed.phone = phoneMatch[0];
+      
+      // Years of experience
+      const yearsMatch = line.match(/(\d+)[\+\s]*years?\s+(?:of\s+)?(?:experience|exp)/i);
+      if (yearsMatch) parsed.yearsOfExperience = yearsMatch[1];
+      
+      // Current position/company
+      if (line.toLowerCase().includes('software engineer') || line.toLowerCase().includes('developer')) {
+        parsed.currentTitle = line;
+      }
+      
+      // Education
+      if (line.toLowerCase().includes('university') || line.toLowerCase().includes('college') || 
+          line.toLowerCase().includes('bachelor') || line.toLowerCase().includes('master')) {
+        parsed.school = line;
+      }
+      
+      // Skills (if line contains common tech terms)
+      const skillKeywords = ['javascript', 'python', 'react', 'node', 'java', 'sql', 'aws', 'docker'];
+      if (skillKeywords.some(skill => line.toLowerCase().includes(skill))) {
+        parsed.skills = line;
+      }
+    });
+
+    parsed.coverLetter = this.generateCoverLetter(parsed);
+    
+    return parsed;
+  }
+
+  generateCoverLetter(data) {
+    return `Dear Hiring Manager,
+
+I am writing to express my interest in this position. With ${data.yearsOfExperience || 'several'} years of experience in ${data.skills || 'the technology industry'}, I am confident that I would be a valuable addition to your team.
+
+In my current role${data.currentTitle ? ` as ${data.currentTitle}` : ''}${data.currentCompany ? ` at ${data.currentCompany}` : ''}, I have developed strong skills in ${data.skills || 'software development'}.
+
+I am excited about the opportunity to contribute to your organization and would welcome the chance to discuss how my experience aligns with your needs.
+
+Best regards,
+${data.fullName || 'Applicant'}`;
+  }
+
+  showPreview() {
+    if (!this.resumeData) return;
+
+    const preview = `
+Name: ${this.resumeData.fullName}
+Email: ${this.resumeData.email}
+Phone: ${this.resumeData.phone}
+Skills: ${Array.isArray(this.resumeData.skills) ? this.resumeData.skills.join(', ') : this.resumeData.skills}
+Experience: ${this.resumeData.experience ? this.resumeData.experience.substring(0, 100) + '...' : 'Not available'}
+    `;
+
+    alert(preview);
+  }
+}
+
+// Standalone functions for script injection (must be outside the class)
+
+// Auto-fill function that runs in page context
 function executeAutoFillScript(resumeData) {
   // This function runs in the context of the web page
   let totalFilled = 0;
   const forms = document.querySelectorAll('form');
 
-  // ALL HELPER FUNCTIONS MUST BE DEFINED FIRST
+  // Parse resume data for form filling (inline parsing)
+  const parsedData = {
+    fullName: resumeData.fullName || '',
+    firstName: resumeData.firstName || (resumeData.fullName ? resumeData.fullName.split(' ')[0] : ''),
+    lastName: resumeData.lastName || (resumeData.fullName ? resumeData.fullName.split(' ').slice(1).join(' ') : ''),
+    email: resumeData.email || '',
+    phone: resumeData.phone || '',
+    address: resumeData.address || '',
+    city: resumeData.city || '',
+    zipCode: resumeData.zipCode || '',
+    yearsOfExperience: resumeData.yearsOfExperience || '',
+    workExperience: resumeData.experience || '',
+    currentTitle: resumeData.currentTitle || '',
+    currentCompany: resumeData.currentCompany || '',
+    skills: Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || ''),
+    school: resumeData.school || '',
+    degree: resumeData.degree || '',
+    fieldOfStudy: resumeData.fieldOfStudy || '',
+    gpa: resumeData.gpa || '',
+    education: resumeData.education || '',
+    coverLetter: resumeData.coverLetter || `Dear Hiring Manager,
+
+I am writing to express my interest in this position. With several years of experience in the technology industry, I am confident that I would be a valuable addition to your team.
+
+In my current role, I have developed strong skills in software development and problem-solving.
+
+I am excited about the opportunity to contribute to your organization and would welcome the chance to discuss how my experience aligns with your needs.
+
+Best regards,
+${resumeData.fullName || 'Applicant'}`,
+    linkedinUrl: resumeData.linkedinUrl || '',
+    githubUrl: resumeData.githubUrl || '',
+    websiteUrl: resumeData.websiteUrl || ''
+  };
+
+  console.log('JobFlow: Auto-fill script executing with data:', parsedData);
+  console.log(`JobFlow: Found ${forms.length} total forms on page`);
+
+  // Log all forms with their characteristics to debug which one to target
+  forms.forEach((form, index) => {
+    const inputs = form.querySelectorAll('input, textarea, select');
+    const formText = form.innerHTML.toLowerCase();
+    const hasContactFields = form.querySelector('input[name*="your-"]');
+    const hasJobAppFields = formText.includes('first name') && formText.includes('last name');
+    
+    console.log(`Form ${index + 1}:`, {
+      inputCount: inputs.length,
+      hasContactFields: !!hasContactFields,
+      hasJobAppFields,
+      sampleInputs: Array.from(inputs).slice(0, 3).map(inp => ({
+        tag: inp.tagName,
+        name: inp.name,
+        placeholder: inp.placeholder,
+        type: inp.type
+      }))
+    });
+  });
+
+  // Filter to only process the job application form (exclude contact forms)
+  const jobApplicationForms = Array.from(forms).filter(form => {
+    const hasContactFields = form.querySelector('input[name*="your-"]');
+    const formText = form.innerHTML.toLowerCase();
+    const hasJobAppStructure = formText.includes('first name') && formText.includes('last name') && formText.includes('resume');
+    
+    console.log('Form filtering:', { hasContactFields: !!hasContactFields, hasJobAppStructure });
+    return !hasContactFields && hasJobAppStructure;
+  });
+
+  console.log(`JobFlow: Filtered to ${jobApplicationForms.length} job application forms`);
+
+  jobApplicationForms.forEach((form, formIndex) => {
+    console.log(`JobFlow: Processing job application form ${formIndex + 1}/${jobApplicationForms.length}`);
+    
+    // Log all inputs in this specific form for detailed debugging
+    const allInputs = form.querySelectorAll('input, textarea, select');
+    console.log(`JobFlow: Form has ${allInputs.length} inputs:`);
+    allInputs.forEach((input, i) => {
+      console.log(`  Input ${i + 1}: ${input.tagName} name="${input.name}" placeholder="${input.placeholder}" type="${input.type}" id="${input.id}"`);
+    });
+
+    // Robust field targeting using multiple selector strategies
+    const fieldMappings = [
+      { 
+        selectors: [
+          // First Name - target by position and attributes
+          'input[aria-label*="First Name" i]',
+          'input[placeholder*="First" i]',
+          'input[name*="first" i]',
+          'input[id*="first" i]',
+          'form input[type="text"]:first-of-type' // Often first text input
+        ], 
+        value: parsedData.firstName,
+        type: 'firstName'
+      },
+      { 
+        selectors: [
+          // Last Name - target by position and attributes  
+          'input[aria-label*="Last Name" i]',
+          'input[placeholder*="Last" i]',
+          'input[name*="last" i]',
+          'input[id*="last" i]',
+          'form input[type="text"]:nth-of-type(2)' // Often second text input
+        ], 
+        value: parsedData.lastName,
+        type: 'lastName'
+      },
+      { 
+        selectors: [
+          // Email - target email inputs and common patterns
+          'input[type="email"]:not([name*="your-"])',
+          'input[aria-label*="Email" i]',
+          'input[placeholder*="Email" i]',
+          'input[name*="email"]:not([name*="your-"])',
+          'input[id*="email"]:not([name*="your-"])',
+          'form input[type="text"][placeholder*="@" i]'
+        ], 
+        value: parsedData.email,
+        type: 'email'
+      },
+      { 
+        selectors: [
+          // Phone - target phone inputs and patterns
+          'input[type="tel"]',
+          'input[aria-label*="Phone" i]',
+          'input[placeholder*="Phone" i]',
+          'input[name*="phone" i]',
+          'input[id*="phone" i]',
+          'input[placeholder*="number" i]'
+        ], 
+        value: parsedData.phone,
+        type: 'phone'
+      },
+      { 
+        selectors: [
+          // Location/City
+          'input[aria-label*="Location" i]',
+          'input[aria-label*="City" i]',
+          'input[placeholder*="Location" i]',
+          'input[placeholder*="City" i]',
+          'input[name*="location" i]',
+          'input[name*="city" i]',
+          'input[id*="location" i]',
+          'input[id*="city" i]'
+        ], 
+        value: parsedData.city || 'San Francisco, CA',
+        type: 'location'
+      },
+      { 
+        selectors: [
+          // LinkedIn Profile
+          'input[aria-label*="LinkedIn" i]',
+          'input[placeholder*="LinkedIn" i]',
+          'input[name*="linkedin" i]',
+          'input[id*="linkedin" i]',
+          'textarea[placeholder*="LinkedIn" i]',
+          'input[placeholder*="profile" i]'
+        ], 
+        value: parsedData.linkedinUrl || 'https://linkedin.com/in/arusheegarg',
+        type: 'linkedin'
+      },
+      { 
+        selectors: [
+          // Cover Letter
+          'textarea[aria-label*="Cover" i]',
+          'textarea[placeholder*="Cover" i]',
+          'textarea[name*="cover" i]',
+          'textarea[id*="cover" i]',
+          'textarea[placeholder*="letter" i]',
+          'textarea[name*="letter" i]'
+        ], 
+        value: parsedData.coverLetter,
+        type: 'coverLetter'
+      }
+    ];
+
+    // Generate intelligent responses for open-ended questions
+    const generatedResponses = generateIntelligentResponses(resumeData);
+    console.log('JobFlow: Generated intelligent responses:', generatedResponses);
+
+    // Additional field mappings for generative/open-ended questions
+    const generativeFieldMappings = [
+      {
+        patterns: ['exceptional work', 'exceptional', 'outstanding', 'remarkable work', 'proud of'],
+        selectors: ['textarea'],
+        value: generatedResponses.exceptionalWork,
+        type: 'exceptionalWork'
+      },
+      {
+        patterns: ['biggest achievement', 'greatest achievement', 'accomplishment', 'proud achievement'],
+        selectors: ['textarea'],
+        value: generatedResponses.biggestAchievement,
+        type: 'biggestAchievement'
+      },
+      {
+        patterns: ['why hire you', 'why should we hire', 'what makes you', 'unique value'],
+        selectors: ['textarea'],
+        value: generatedResponses.whyHireYou,
+        type: 'whyHireYou'
+      },
+      {
+        patterns: ['technical challenge', 'difficult problem', 'complex problem', 'challenging project'],
+        selectors: ['textarea'],
+        value: generatedResponses.technicalChallenge,
+        type: 'technicalChallenge'
+      },
+      {
+        patterns: ['leadership experience', 'leadership', 'led a team', 'managed'],
+        selectors: ['textarea'],
+        value: generatedResponses.leadershipExperience,
+        type: 'leadershipExperience'
+      },
+      {
+        patterns: ['passion', 'passionate about', 'motivates you', 'drives you'],
+        selectors: ['textarea'],
+        value: generatedResponses.passion,
+        type: 'passion'
+      }
+    ];
+
+    // Analyze resume data to determine intelligent answers
+    const resumeAnalysis = analyzeResumeForSelections(resumeData);
+    console.log('JobFlow: Resume analysis results:', resumeAnalysis);
+
+    // Handle dropdown and radio button selections for common job application questions
+    const smartSelections = [
+      {
+        // Visa sponsorship questions
+        patterns: ['sponsorship', 'visa', 'h-1b', 'work authorization', 'legally authorized'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.needsSponsorship ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.needsSponsorship ? ['yes', 'true', '1'] : ['no', 'false', '0'],
+        type: 'visaSponsorship'
+      },
+      {
+        // US work eligibility
+        patterns: ['eligible.*work.*us', 'authorized.*work.*united states', 'legally.*work.*us'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.canWorkInUS ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.canWorkInUS ? ['yes', 'true', '1'] : ['no', 'false', '0'],
+        type: 'workEligibility'
+      },
+      {
+        // Years of experience dropdowns
+        patterns: ['years.*experience', 'experience.*years', 'how many years'],
+        selectors: ['select'],
+        preferredAnswer: resumeAnalysis.experienceRange,
+        fallbackAnswers: resumeAnalysis.experienceFallbacks,
+        type: 'yearsExperience'
+      },
+      {
+        // Education level
+        patterns: ['education', 'degree', 'highest.*education'],
+        selectors: ['select'],
+        preferredAnswer: resumeAnalysis.educationLevel,
+        fallbackAnswers: resumeAnalysis.educationFallbacks,
+        type: 'educationLevel'
+      },
+      {
+        // Security clearance
+        patterns: ['security clearance', 'clearance'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.hasSecurityClearance ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.hasSecurityClearance ? ['yes', 'active'] : ['no', 'none', 'not applicable'],
+        type: 'securityClearance'
+      },
+      {
+        // Remote work preference
+        patterns: ['remote', 'work.*home', 'location preference'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: resumeAnalysis.remoteWorkPreference,
+        fallbackAnswers: ['remote', 'hybrid', 'on-site', 'any'],
+        type: 'remoteWork'
+      }
+    ];
+
+    fieldMappings.forEach(mapping => {
+      if (!mapping.value) {
+        console.log(`JobFlow: Skipping ${mapping.type} - no value available`);
+        return;
+      }
+
+      console.log(`JobFlow: Looking for ${mapping.type} fields with value: "${mapping.value}"`);
+      let foundFields = 0;
+
+      mapping.selectors.forEach(selector => {
+        try {
+          // Use standard querySelectorAll (no :contains() pseudo-selector)
+          const fields = Array.from(form.querySelectorAll(selector));
+          console.log(`  Selector "${selector}": found ${fields.length} fields`);
+          
+          // Only fill the FIRST matching field to avoid filling multiple fields
+          if (fields.length > 0 && foundFields === 0) {
+            const field = fields[0];
+            console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}" id="${field.id}"`);
+            
+            if (field.value && field.value.trim()) {
+              console.log(`    Skipping - field already has value: "${field.value}"`);
+              return;
+            }
+            
+            if (field.tagName.toLowerCase() === 'select') {
+              // Handle select dropdowns
+              const options = field.querySelectorAll('option');
+              for (let option of options) {
+                if (option.textContent.toLowerCase().includes(mapping.value.toLowerCase())) {
+                  field.value = option.value;
+                  field.dispatchEvent(new Event('change', { bubbles: true }));
+                  break;
+                }
+              }
+            } else {
+              console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
+              field.value = mapping.value;
+              field.dispatchEvent(new Event('input', { bubbles: true }));
+              field.dispatchEvent(new Event('change', { bubbles: true }));
+              field.dispatchEvent(new Event('blur', { bubbles: true }));
+            }
+            
+            foundFields++;
+            totalFilled++;
+            console.log(`    ✓ Successfully filled field`);
+          }
+        } catch (error) {
+          console.log(`    Error with selector "${selector}": ${error.message}`);
+        }
+      });
+
+      if (foundFields === 0) {
+        console.log(`JobFlow: No fields found for ${mapping.type} using any selector`);
+      }
+    });
+
+    // Handle generative text responses
+    console.log('JobFlow: Processing generative text fields...');
+    
+    generativeFieldMappings.forEach(mapping => {
+      if (!mapping.value) {
+        console.log(`JobFlow: Skipping ${mapping.type} - no generated response available`);
+        return;
+      }
+
+      console.log(`JobFlow: Looking for ${mapping.type} fields...`);
+      let foundFields = 0;
+
+      // Find textarea elements with surrounding context that matches the patterns
+      const allTextareas = form.querySelectorAll('textarea');
+      console.log(`  Found ${allTextareas.length} textarea elements`);
+      
+      allTextareas.forEach((textarea, index) => {
+        const surroundingText = getSurroundingText(textarea);
+        const isRelevant = mapping.patterns.some(pattern => 
+          new RegExp(pattern, 'i').test(surroundingText)
+        );
+        
+        if (isRelevant && foundFields === 0) {
+          console.log(`  Textarea ${index + 1} matches ${mapping.type}:`);
+          console.log(`    Context: "${surroundingText.substring(0, 100)}..."`);
+          
+          if (textarea.value && textarea.value.trim()) {
+            console.log(`    Skipping - field already has value`);
+            return;
+          }
+          
+          console.log(`    Filling with generated response (${mapping.value.length} chars)`);
+          textarea.value = mapping.value;
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          textarea.dispatchEvent(new Event('blur', { bubbles: true }));
+          
+          foundFields++;
+          totalFilled++;
+          console.log(`    ✓ Successfully filled generative field`);
+        }
+      });
+
+      if (foundFields === 0) {
+        console.log(`JobFlow: No relevant textarea found for ${mapping.type}`);
+      }
+    });
+
+    // Handle smart selections for dropdowns and radio buttons
+    console.log('JobFlow: Processing smart selections for dropdowns and radio buttons...');
+    
+    smartSelections.forEach(selection => {
+      console.log(`JobFlow: Looking for ${selection.type} fields...`);
+      
+      // Find relevant elements by checking surrounding text content
+      const allElements = form.querySelectorAll(selection.selectors.join(', '));
+      console.log(`  Found ${allElements.length} potential ${selection.selectors.join('/')} elements`);
+      
+      allElements.forEach((element, index) => {
+        // Check if this element relates to the question patterns
+        const surroundingText = getSurroundingText(element);
+        const isRelevant = selection.patterns.some(pattern => 
+          new RegExp(pattern, 'i').test(surroundingText)
+        );
+        
+        if (isRelevant) {
+          console.log(`  Element ${index + 1} matches ${selection.type}:`);
+          console.log(`    Type: ${element.tagName}, Text context: "${surroundingText.substring(0, 100)}..."`);
+          
+          const success = handleSmartSelection(element, selection);
+          if (success) {
+            totalFilled++;
+            console.log(`    ✓ Successfully selected ${selection.preferredAnswer} for ${selection.type}`);
+          } else {
+            console.log(`    ✗ Failed to select option for ${selection.type}`);
+          }
+        }
+      });
+    });
+  });
+
+  // Handle resume file attachment after filling fields
+  console.log('JobFlow: Looking for file upload fields...');
   
+  // Look for file input elements (resume upload)
+  const fileInputs = document.querySelectorAll('input[type="file"]');
+  console.log(`JobFlow: Found ${fileInputs.length} file input fields`);
+  
+  if (fileInputs.length > 0 && resumeData.filename) {
+    fileInputs.forEach((fileInput, index) => {
+      console.log(`JobFlow: Processing file input ${index + 1}:`);
+      console.log(`  Input: accept="${fileInput.accept}" name="${fileInput.name}"`);
+      
+      // Check if this is likely a resume upload field
+      const parentText = fileInput.parentElement?.textContent?.toLowerCase() || '';
+      const isResumeField = parentText.includes('resume') || 
+                           parentText.includes('cv') || 
+                           fileInput.accept?.includes('.pdf') ||
+                           fileInput.accept?.includes('application/pdf');
+      
+      if (isResumeField) {
+        console.log('  This appears to be a resume upload field');
+        
+        try {
+          // Create a File object from the resume data
+          const resumeContent = resumeData.extractedText || 'Resume content';
+          const file = new File([resumeContent], resumeData.filename || 'resume.txt', {
+            type: 'text/plain',
+            lastModified: Date.now()
+          });
+          
+          // Create a FileList-like object
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          
+          // Trigger events to notify the form
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          console.log(`  ✓ Attached resume file: ${resumeData.filename}`);
+          totalFilled++;
+        } catch (error) {
+          console.log(`  ✗ Failed to attach resume: ${error.message}`);
+        }
+      } else {
+        console.log('  Skipping - not a resume upload field');
+      }
+    });
+  } else {
+    console.log('JobFlow: No file inputs found or no resume data available');
+  }
+
+  // Generate intelligent responses for open-ended questions based on resume content
+  function generateIntelligentResponses(resumeData) {
+    const text = (resumeData.extractedText || '').toLowerCase();
+    const experience = (resumeData.experience || '');
+    const skills = Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || '');
+    
+    console.log('JobFlow: Generating intelligent responses from resume content...');
+    
+    // Extract achievements and projects from resume text
+    const achievements = extractAchievements(text);
+    const projects = extractProjects(text);
+    const technologies = extractTechnologies(text);
+    
+    // Generate exceptional work response
+    const exceptionalWork = generateExceptionalWorkResponse(achievements, projects, technologies, resumeData);
+    
+    // Generate biggest achievement response
+    const biggestAchievement = generateBiggestAchievementResponse(achievements, projects, resumeData);
+    
+    // Generate why hire you response
+    const whyHireYou = generateWhyHireYouResponse(skills, achievements, resumeData);
+    
+    // Generate technical challenge response
+    const technicalChallenge = generateTechnicalChallengeResponse(projects, technologies, resumeData);
+    
+    // Generate leadership experience response
+    const leadershipExperience = generateLeadershipResponse(text, projects, resumeData);
+    
+    // Generate passion response
+    const passion = generatePassionResponse(technologies, skills, resumeData);
+    
+    return {
+      exceptionalWork,
+      biggestAchievement,
+      whyHireYou,
+      technicalChallenge,
+      leadershipExperience,
+      passion
+    };
+  }
+  
+  // Helper functions for content extraction and generation
   function extractAchievements(text) {
     const achievementKeywords = ['achieved', 'accomplished', 'improved', 'increased', 'reduced', 'optimized', 'built', 'created', 'developed', 'launched'];
     const sentences = text.split(/[.!?]+/);
@@ -85,28 +935,7 @@ function executeAutoFillScript(resumeData) {
     return `I'm deeply passionate about technology and its potential to solve real-world problems. Working with ${techList} energizes me because I love the continuous learning aspect of software development and the satisfaction of building solutions that make a meaningful impact. What drives me most is the opportunity to combine creativity with logical problem-solving, whether that's architecting elegant solutions, optimizing performance, or creating intuitive user experiences. I'm motivated by the collaborative nature of development work and the constant evolution of tools and best practices in our field.`;
   }
 
-  function generateIntelligentResponses(resumeData) {
-    const text = (resumeData.extractedText || '').toLowerCase();
-    const experience = (resumeData.experience || '');
-    const skills = Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || '');
-    
-    console.log('JobFlow: Generating intelligent responses from resume content...');
-    
-    // Extract achievements and projects from resume text
-    const achievements = extractAchievements(text);
-    const projects = extractProjects(text);
-    const technologies = extractTechnologies(text);
-    
-    return {
-      exceptionalWork: generateExceptionalWorkResponse(achievements, projects, technologies, resumeData),
-      biggestAchievement: generateBiggestAchievementResponse(achievements, projects, resumeData),
-      whyHireYou: generateWhyHireYouResponse(skills, achievements, resumeData),
-      technicalChallenge: generateTechnicalChallengeResponse(projects, technologies, resumeData),
-      leadershipExperience: generateLeadershipResponse(text, projects, resumeData),
-      passion: generatePassionResponse(technologies, skills, resumeData)
-    };
-  }
-
+  // Analyze resume data to determine intelligent answers for common questions
   function analyzeResumeForSelections(resumeData) {
     const text = (resumeData.extractedText || '').toLowerCase();
     const experience = (resumeData.experience || '').toLowerCase();
@@ -121,10 +950,9 @@ function executeAutoFillScript(resumeData) {
                         text.includes('lpr');
     const hasWorkVisa = text.includes('h-1b') || text.includes('h1b') || text.includes('opt') || 
                        text.includes('f-1') || text.includes('work visa');
-    const authorizedToWork = text.includes('authorized to work') || text.includes('authorized to w');
     
-    const canWorkInUS = hasUSCitizenship || hasGreenCard || hasWorkVisa || authorizedToWork;
-    const needsSponsorship = hasWorkVisa || (!hasUSCitizenship && !hasGreenCard && !authorizedToWork);
+    const canWorkInUS = hasUSCitizenship || hasGreenCard || hasWorkVisa;
+    const needsSponsorship = hasWorkVisa || (!hasUSCitizenship && !hasGreenCard);
     
     // Years of experience analysis
     let experienceYears = 0;
@@ -185,55 +1013,11 @@ function executeAutoFillScript(resumeData) {
                                  text.includes('top secret');
     
     // Remote work preference analysis
-    let remoteWorkPreference = 'Hybrid';
+    let remoteWorkPreference = 'Hybrid'; // Default to hybrid as most flexible
     if (text.includes('remote work') || text.includes('work remotely') || text.includes('distributed team')) {
       remoteWorkPreference = 'Remote';
     } else if (text.includes('on-site') || text.includes('office') || text.includes('in-person')) {
       remoteWorkPreference = 'On-site';
-    }
-    
-    // Demographic information analysis
-    let gender = null;
-    if (text.includes('gender: female') || text.includes('gender:female')) {
-      gender = 'Female';
-    } else if (text.includes('gender: male') || text.includes('gender:male')) {
-      gender = 'Male';
-    } else if (text.includes('male') && !text.includes('female')) {
-      gender = 'Male';
-    } else if (text.includes('female')) {
-      gender = 'Female';
-    }
-    
-    let veteranStatus = null;
-    if (text.includes('veteran') || text.includes('military service') || text.includes('armed forces') || 
-        text.includes('navy') || text.includes('army') || text.includes('air force') || text.includes('marines')) {
-      if (text.includes('disabled veteran') || text.includes('campaign badge') || 
-          text.includes('recently separated') || text.includes('armed forces service medal')) {
-        veteranStatus = 'I identify as one or more of the classifications of protected veteran';
-      } else {
-        veteranStatus = 'I am a veteran, but I am not a protected veteran';
-      }
-    }
-    
-    let disabilityStatus = null;
-    if (text.includes('disability') || text.includes('disabled') || text.includes('accommodation') || 
-        text.includes('impairment')) {
-      disabilityStatus = 'Yes, I have a disability (or previously had a disability)';
-    }
-    
-    let ethnicity = null;
-    if (text.includes('hispanic') || text.includes('latino') || text.includes('latina')) {
-      ethnicity = 'Hispanic or Latino';
-    } else if (text.includes('asian') || text.includes('indian') || text.includes('chinese') || text.includes('japanese')) {
-      ethnicity = 'Asian';
-    } else if (text.includes('black') || text.includes('african american')) {
-      ethnicity = 'Black or African American';
-    } else if (text.includes('white') || text.includes('caucasian')) {
-      ethnicity = 'White';
-    } else if (text.includes('native american') || text.includes('american indian')) {
-      ethnicity = 'American Indian or Alaska Native';
-    } else if (text.includes('pacific islander') || text.includes('hawaiian')) {
-      ethnicity = 'Native Hawaiian or Other Pacific Islander';
     }
     
     return {
@@ -245,14 +1029,11 @@ function executeAutoFillScript(resumeData) {
       educationLevel,
       educationFallbacks,
       hasSecurityClearance,
-      remoteWorkPreference,
-      gender,
-      veteranStatus,
-      disabilityStatus,
-      ethnicity
+      remoteWorkPreference
     };
   }
 
+  // Helper function to get surrounding text context for an element
   function getSurroundingText(element) {
     let context = '';
     
@@ -279,8 +1060,10 @@ function executeAutoFillScript(resumeData) {
     return context.toLowerCase().replace(/\s+/g, ' ').trim();
   }
   
+  // Helper function to handle smart selection for dropdowns and radio buttons
   function handleSmartSelection(element, selection) {
     if (element.tagName.toLowerCase() === 'select') {
+      // Handle dropdown selection
       const options = Array.from(element.options);
       console.log(`    Dropdown has ${options.length} options:`, options.map(o => o.textContent.trim()));
       
@@ -307,6 +1090,7 @@ function executeAutoFillScript(resumeData) {
         return true;
       }
     } else if (element.type === 'radio') {
+      // Handle radio button selection
       const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
       console.log(`    Radio group "${element.name}" has ${radioGroup.length} options`);
       
@@ -314,6 +1098,7 @@ function executeAutoFillScript(resumeData) {
         const radioContext = getSurroundingText(radio);
         console.log(`      Option: "${radioContext.substring(0, 50)}..."`);
         
+        // Check if this radio matches preferred answer
         const isPreferred = selection.preferredAnswer.toLowerCase() === radioContext.toLowerCase() ||
                            radioContext.includes(selection.preferredAnswer.toLowerCase());
         
@@ -342,308 +1127,69 @@ function executeAutoFillScript(resumeData) {
     return false;
   }
 
-  // MAIN EXECUTION STARTS HERE
-
-  console.log('JobFlow: Auto-fill script executing with data:', resumeData);
-  console.log(`JobFlow: Found ${forms.length} total forms on page`);
-
-  // Generate analysis and responses
-  const resumeAnalysis = analyzeResumeForSelections(resumeData);
-  console.log('JobFlow: Resume analysis results:', resumeAnalysis);
-
-  const generatedResponses = generateIntelligentResponses(resumeData);
-  console.log('JobFlow: Generated intelligent responses:', generatedResponses);
-
-  // Parse resume data for form filling
-  const parsedData = {
-    fullName: resumeData.fullName || '',
-    firstName: resumeData.firstName || (resumeData.fullName ? resumeData.fullName.split(' ')[0] : ''),
-    lastName: resumeData.lastName || (resumeData.fullName ? resumeData.fullName.split(' ').slice(1).join(' ') : ''),
-    email: resumeData.email || '',
-    phone: resumeData.phone || '',
-    address: resumeData.address || '',
-    city: resumeData.city || '',
-    zipCode: resumeData.zipCode || '',
-    yearsOfExperience: resumeData.yearsOfExperience || '',
-    workExperience: resumeData.experience || '',
-    currentTitle: resumeData.currentTitle || '',
-    currentCompany: resumeData.currentCompany || '',
-    skills: Array.isArray(resumeData.skills) ? resumeData.skills.join(', ') : (resumeData.skills || ''),
-    school: resumeData.school || '',
-    degree: resumeData.degree || '',
-    fieldOfStudy: resumeData.fieldOfStudy || '',
-    gpa: resumeData.gpa || '',
-    education: resumeData.education || '',
-    coverLetter: resumeData.coverLetter || generatedResponses.whyHireYou,
-    linkedinUrl: resumeData.linkedinUrl || 'https://linkedin.com/in/arusheegarg',
-    githubUrl: resumeData.githubUrl || '',
-    websiteUrl: resumeData.websiteUrl || ''
-  };
-
-  // Process each form
-  forms.forEach((form, formIndex) => {
-    console.log(`JobFlow: Processing form ${formIndex + 1}/${forms.length}`);
-    
-    // Basic field mappings
-    const fieldMappings = [
-      { 
-        selectors: ['input[aria-label*="First Name" i]', 'input[placeholder*="First" i]', 'input[name*="first" i]', 'form input[type="text"]:first-of-type'], 
-        value: parsedData.firstName,
-        type: 'firstName'
-      },
-      { 
-        selectors: ['input[aria-label*="Last Name" i]', 'input[placeholder*="Last" i]', 'input[name*="last" i]', 'form input[type="text"]:nth-of-type(2)'], 
-        value: parsedData.lastName,
-        type: 'lastName'
-      },
-      { 
-        selectors: ['input[type="email"]:not([name*="your-"])', 'input[aria-label*="Email" i]', 'input[placeholder*="Email" i]'], 
-        value: parsedData.email,
-        type: 'email'
-      },
-      { 
-        selectors: ['input[type="tel"]', 'input[aria-label*="Phone" i]', 'input[placeholder*="Phone" i]'], 
-        value: parsedData.phone,
-        type: 'phone'
-      },
-      { 
-        selectors: ['input[aria-label*="Location" i]', 'input[placeholder*="Location" i]', 'input[name*="location" i]'], 
-        value: parsedData.city || 'San Francisco, CA',
-        type: 'location'
-      },
-      { 
-        selectors: ['input[aria-label*="LinkedIn" i]', 'input[placeholder*="LinkedIn" i]', 'textarea[placeholder*="LinkedIn" i]'], 
-        value: parsedData.linkedinUrl,
-        type: 'linkedin'
-      }
-    ];
-
-    // Smart selections for dropdowns
-    const smartSelections = [
-      {
-        patterns: ['sponsorship', 'visa', 'h-1b', 'work authorization', 'legally authorized'],
-        selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: resumeAnalysis.needsSponsorship ? 'Yes' : 'No',
-        fallbackAnswers: resumeAnalysis.needsSponsorship ? ['yes', 'true', '1'] : ['no', 'false', '0'],
-        type: 'visaSponsorship'
-      },
-      {
-        patterns: ['eligible.*work.*us', 'authorized.*work.*united states', 'legally.*work.*us'],
-        selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: resumeAnalysis.canWorkInUS ? 'Yes' : 'No',
-        fallbackAnswers: resumeAnalysis.canWorkInUS ? ['yes', 'true', '1'] : ['no', 'false', '0'],
-        type: 'workEligibility'
-      },
-      {
-        patterns: ['gender', 'sex', 'identify.*gender'],
-        selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: resumeAnalysis.gender || 'Decline To Self Identify',
-        fallbackAnswers: ['male', 'female', 'decline', 'prefer not to say'],
-        type: 'gender'
-      },
-      {
-        patterns: ['veteran', 'military', 'armed forces', 'service member'],
-        selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: resumeAnalysis.veteranStatus || 'I am not a protected veteran',
-        fallbackAnswers: ['not a veteran', 'no', 'not protected', 'civilian'],
-        type: 'veteranStatus'
-      },
-      {
-        patterns: ['disability', 'disabled', 'impairment', 'accommodation'],
-        selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: resumeAnalysis.disabilityStatus || 'I do not have a disability',
-        fallbackAnswers: ['no', 'do not have', 'not disabled', 'no disability'],
-        type: 'disabilityStatus'
-      }
-    ];
-
-    // Generative text mappings
-    const generativeFieldMappings = [
-      {
-        patterns: ['exceptional work', 'exceptional', 'outstanding', 'remarkable work', 'proud of'],
-        selectors: ['textarea'],
-        value: generatedResponses.exceptionalWork,
-        type: 'exceptionalWork'
-      },
-      {
-        patterns: ['biggest achievement', 'greatest achievement', 'accomplishment', 'proud achievement'],
-        selectors: ['textarea'],
-        value: generatedResponses.biggestAchievement,
-        type: 'biggestAchievement'
-      },
-      {
-        patterns: ['why hire you', 'why should we hire', 'what makes you', 'unique value'],
-        selectors: ['textarea'],
-        value: generatedResponses.whyHireYou,
-        type: 'whyHireYou'
-      }
-    ];
-
-    // Fill basic fields
-    fieldMappings.forEach(mapping => {
-      if (!mapping.value) return;
-      
-      console.log(`JobFlow: Looking for ${mapping.type} fields with value: "${mapping.value}"`);
-      let foundFields = 0;
-
-      mapping.selectors.forEach(selector => {
-        try {
-          const fields = Array.from(form.querySelectorAll(selector));
-          console.log(`  Selector "${selector}": found ${fields.length} fields`);
-          
-          if (fields.length > 0 && foundFields === 0) {
-            const field = fields[0];
-            console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}" id="${field.id}"`);
-            
-            if (field.value && field.value.trim()) {
-              console.log(`    Skipping - field already has value: "${field.value}"`);
-              return;
-            }
-            
-            console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
-            field.value = mapping.value;
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
-            field.dispatchEvent(new Event('blur', { bubbles: true }));
-            
-            foundFields++;
-            totalFilled++;
-            console.log(`    ✓ Successfully filled field`);
-          }
-        } catch (error) {
-          console.log(`    Error with selector "${selector}": ${error.message}`);
-        }
-      });
-
-      if (foundFields === 0) {
-        console.log(`JobFlow: No fields found for ${mapping.type} using any selector`);
-      }
-    });
-
-    // Handle smart selections for dropdowns
-    console.log('JobFlow: Processing smart selections for dropdowns and radio buttons...');
-    
-    smartSelections.forEach(selection => {
-      console.log(`JobFlow: Looking for ${selection.type} fields...`);
-      
-      const allElements = form.querySelectorAll(selection.selectors.join(', '));
-      console.log(`  Found ${allElements.length} potential ${selection.selectors.join('/')} elements`);
-      
-      allElements.forEach((element, index) => {
-        const surroundingText = getSurroundingText(element);
-        const isRelevant = selection.patterns.some(pattern => 
-          new RegExp(pattern, 'i').test(surroundingText)
-        );
-        
-        if (isRelevant) {
-          console.log(`  Element ${index + 1} matches ${selection.type}:`);
-          console.log(`    Type: ${element.tagName}, Text context: "${surroundingText.substring(0, 100)}..."`);
-          
-          const success = handleSmartSelection(element, selection);
-          if (success) {
-            totalFilled++;
-            console.log(`    ✓ Successfully selected ${selection.preferredAnswer} for ${selection.type}`);
-          } else {
-            console.log(`    ✗ Failed to select option for ${selection.type}`);
-          }
-        }
-      });
-    });
-
-    // Handle generative text responses
-    console.log('JobFlow: Processing generative text fields...');
-    
-    generativeFieldMappings.forEach(mapping => {
-      if (!mapping.value) {
-        console.log(`JobFlow: Skipping ${mapping.type} - no generated response available`);
-        return;
-      }
-
-      console.log(`JobFlow: Looking for ${mapping.type} fields...`);
-      let foundFields = 0;
-
-      const allTextareas = form.querySelectorAll('textarea');
-      console.log(`  Found ${allTextareas.length} textarea elements`);
-      
-      allTextareas.forEach((textarea, index) => {
-        const surroundingText = getSurroundingText(textarea);
-        const isRelevant = mapping.patterns.some(pattern => 
-          new RegExp(pattern, 'i').test(surroundingText)
-        );
-        
-        if (isRelevant && foundFields === 0) {
-          console.log(`  Textarea ${index + 1} matches ${mapping.type}:`);
-          console.log(`    Context: "${surroundingText.substring(0, 100)}..."`);
-          
-          if (textarea.value && textarea.value.trim()) {
-            console.log(`    Skipping - field already has value`);
-            return;
-          }
-          
-          console.log(`    Filling with generated response (${mapping.value.length} chars)`);
-          textarea.value = mapping.value;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          textarea.dispatchEvent(new Event('change', { bubbles: true }));
-          textarea.dispatchEvent(new Event('blur', { bubbles: true }));
-          
-          foundFields++;
-          totalFilled++;
-          console.log(`    ✓ Successfully filled generative field`);
-        }
-      });
-
-      if (foundFields === 0) {
-        console.log(`JobFlow: No relevant textarea found for ${mapping.type}`);
-      }
-    });
-  });
-
-  // Handle resume file attachment
-  console.log('JobFlow: Looking for file upload fields...');
-  
-  const fileInputs = document.querySelectorAll('input[type="file"]');
-  console.log(`JobFlow: Found ${fileInputs.length} file input fields`);
-  
-  if (fileInputs.length > 0 && resumeData.filename) {
-    fileInputs.forEach((fileInput, index) => {
-      console.log(`JobFlow: Processing file input ${index + 1}:`);
-      console.log(`  Input: accept="${fileInput.accept}" name="${fileInput.name}"`);
-      
-      const parentText = fileInput.parentElement?.textContent?.toLowerCase() || '';
-      const isResumeField = parentText.includes('resume') || 
-                           parentText.includes('cv') || 
-                           fileInput.accept?.includes('.pdf') ||
-                           fileInput.accept?.includes('application/pdf');
-      
-      if (isResumeField) {
-        console.log('  This appears to be a resume upload field');
-        
-        try {
-          const resumeContent = resumeData.extractedText || 'Resume content';
-          const file = new File([resumeContent], resumeData.filename || 'resume.txt', {
-            type: 'text/plain',
-            lastModified: Date.now()
-          });
-          
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          fileInput.files = dt.files;
-          
-          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-          
-          console.log(`  ✓ Attached resume file: ${resumeData.filename}`);
-          totalFilled++;
-        } catch (error) {
-          console.log(`  ✗ Failed to attach resume: ${error.message}`);
-        }
-      } else {
-        console.log('  Skipping - not a resume upload field');
-      }
-    });
-  } else {
-    console.log('JobFlow: No file inputs found or no resume data available');
-  }
-
   console.log(`JobFlow: Total fields filled: ${totalFilled}`);
   return totalFilled;
 }
+
+function checkForJobFormsScript() {
+  // This function runs in the context of the web page
+  const url = window.location.href.toLowerCase();
+  const content = document.body?.textContent?.toLowerCase() || '';
+  
+  const jobKeywords = [
+    'careers', 'jobs', 'apply', 'application', 'position', 'employment', 'hiring',
+    'lever.co', 'greenhouse.io', 'workday.com', 'jobvite.com', 'breezy.hr',
+    'gh_jid', 'job', 'opening', 'staff', 'engineer', 'developer'
+  ];
+  
+  const formKeywords = [
+    'resume', 'cv', 'first name', 'last name', 'email', 'phone',
+    'cover letter', 'experience', 'skills', 'education', 'apply for this job',
+    'submit application', 'greenhouse', 'autofill with greenhouse'
+  ];
+  
+  // Enhanced detection - check URL keywords
+  const urlHasJobKeywords = jobKeywords.some(keyword => url.includes(keyword));
+  
+  // Check content keywords  
+  const contentHasJobKeywords = formKeywords.some(keyword => content.includes(keyword));
+  
+  // Check for specific job application indicators
+  const hasJobApplicationForm = document.querySelector('form') && (
+    content.includes('apply for this job') ||
+    content.includes('submit application') ||
+    content.includes('first name') ||
+    content.includes('resume/cv') ||
+    url.includes('gh_jid') ||
+    url.includes('careers')
+  );
+  
+  const isJobPage = urlHasJobKeywords || contentHasJobKeywords || hasJobApplicationForm;
+  
+  const forms = document.querySelectorAll('form');
+  const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea');
+  
+  // Debug logging (will show in browser console)
+  console.log('JobFlow Page Detection Debug:', {
+    url: window.location.href,
+    urlHasJobKeywords,
+    contentHasJobKeywords, 
+    hasJobApplicationForm,
+    isJobPage,
+    formsFound: forms.length,
+    inputsFound: inputs.length
+  });
+  
+  return {
+    isJobPage,
+    formsFound: forms.length,
+    inputsFound: inputs.length,
+    url: window.location.href
+  };
+}
+
+// Initialize popup when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  const popup = new JobFlowPopup();
+  popup.init();
+});
