@@ -525,54 +525,58 @@ ${resumeData.fullName || 'Applicant'}`,
       }
     ];
 
+    // Analyze resume data to determine intelligent answers
+    const resumeAnalysis = analyzeResumeForSelections(resumeData);
+    console.log('JobFlow: Resume analysis results:', resumeAnalysis);
+
     // Handle dropdown and radio button selections for common job application questions
     const smartSelections = [
       {
         // Visa sponsorship questions
         patterns: ['sponsorship', 'visa', 'h-1b', 'work authorization', 'legally authorized'],
         selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: 'No', // Most candidates don't need sponsorship
-        fallbackAnswers: ['no', 'false', '0'],
+        preferredAnswer: resumeAnalysis.needsSponsorship ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.needsSponsorship ? ['yes', 'true', '1'] : ['no', 'false', '0'],
         type: 'visaSponsorship'
       },
       {
         // US work eligibility
         patterns: ['eligible.*work.*us', 'authorized.*work.*united states', 'legally.*work.*us'],
         selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: 'Yes',
-        fallbackAnswers: ['yes', 'true', '1'],
+        preferredAnswer: resumeAnalysis.canWorkInUS ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.canWorkInUS ? ['yes', 'true', '1'] : ['no', 'false', '0'],
         type: 'workEligibility'
       },
       {
         // Years of experience dropdowns
         patterns: ['years.*experience', 'experience.*years', 'how many years'],
         selectors: ['select'],
-        preferredAnswer: '3-5 years',
-        fallbackAnswers: ['3', '4', '5', '2-3', '3-4', '5+'],
+        preferredAnswer: resumeAnalysis.experienceRange,
+        fallbackAnswers: resumeAnalysis.experienceFallbacks,
         type: 'yearsExperience'
       },
       {
         // Education level
         patterns: ['education', 'degree', 'highest.*education'],
         selectors: ['select'],
-        preferredAnswer: "Bachelor's",
-        fallbackAnswers: ["bachelor's", 'bachelor', 'bs', 'undergraduate'],
+        preferredAnswer: resumeAnalysis.educationLevel,
+        fallbackAnswers: resumeAnalysis.educationFallbacks,
         type: 'educationLevel'
       },
       {
         // Security clearance
         patterns: ['security clearance', 'clearance'],
         selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: 'No',
-        fallbackAnswers: ['no', 'none', 'not applicable'],
+        preferredAnswer: resumeAnalysis.hasSecurityClearance ? 'Yes' : 'No',
+        fallbackAnswers: resumeAnalysis.hasSecurityClearance ? ['yes', 'active'] : ['no', 'none', 'not applicable'],
         type: 'securityClearance'
       },
       {
         // Remote work preference
         patterns: ['remote', 'work.*home', 'location preference'],
         selectors: ['select', 'input[type="radio"]'],
-        preferredAnswer: 'Remote',
-        fallbackAnswers: ['remote', 'work from home', 'hybrid'],
+        preferredAnswer: resumeAnalysis.remoteWorkPreference,
+        fallbackAnswers: ['remote', 'hybrid', 'on-site', 'any'],
         type: 'remoteWork'
       }
     ];
@@ -716,6 +720,104 @@ ${resumeData.fullName || 'Applicant'}`,
     });
   } else {
     console.log('JobFlow: No file inputs found or no resume data available');
+  }
+
+  // Analyze resume data to determine intelligent answers for common questions
+  function analyzeResumeForSelections(resumeData) {
+    const text = (resumeData.extractedText || '').toLowerCase();
+    const experience = (resumeData.experience || '').toLowerCase();
+    const education = (resumeData.education || '').toLowerCase();
+    
+    console.log('JobFlow: Analyzing resume text for smart selections...');
+    
+    // Work authorization analysis
+    const hasUSCitizenship = text.includes('us citizen') || text.includes('american citizen') || 
+                            text.includes('citizenship') || text.includes('naturalized');
+    const hasGreenCard = text.includes('green card') || text.includes('permanent resident') || 
+                        text.includes('lpr');
+    const hasWorkVisa = text.includes('h-1b') || text.includes('h1b') || text.includes('opt') || 
+                       text.includes('f-1') || text.includes('work visa');
+    
+    const canWorkInUS = hasUSCitizenship || hasGreenCard || hasWorkVisa;
+    const needsSponsorship = hasWorkVisa || (!hasUSCitizenship && !hasGreenCard);
+    
+    // Years of experience analysis
+    let experienceYears = 0;
+    const expMatches = text.match(/(\d+)[\+\s]*years?\s+(?:of\s+)?(?:experience|exp)/gi);
+    if (expMatches) {
+      experienceYears = Math.max(...expMatches.map(m => parseInt(m.match(/\d+/)[0])));
+    }
+    
+    // If no explicit years mentioned, try to count job positions/projects
+    if (experienceYears === 0) {
+      const jobTitles = (text.match(/software engineer|developer|programmer|analyst|consultant/gi) || []).length;
+      const projects = (text.match(/project|built|developed|created|implemented/gi) || []).length;
+      experienceYears = Math.min(Math.max(jobTitles, Math.floor(projects / 3)), 10);
+    }
+    
+    let experienceRange = '0-1 years';
+    let experienceFallbacks = ['0', '1', 'entry level', 'less than 1'];
+    
+    if (experienceYears >= 10) {
+      experienceRange = '10+ years';
+      experienceFallbacks = ['10+', '10', '15', 'senior', 'expert'];
+    } else if (experienceYears >= 7) {
+      experienceRange = '7-10 years';
+      experienceFallbacks = ['7', '8', '9', '10', '7-10'];
+    } else if (experienceYears >= 5) {
+      experienceRange = '5-7 years';
+      experienceFallbacks = ['5', '6', '7', '5-7'];
+    } else if (experienceYears >= 3) {
+      experienceRange = '3-5 years';
+      experienceFallbacks = ['3', '4', '5', '3-5'];
+    } else if (experienceYears >= 1) {
+      experienceRange = '1-3 years';
+      experienceFallbacks = ['1', '2', '3', '1-3'];
+    }
+    
+    // Education analysis
+    let educationLevel = 'High School';
+    let educationFallbacks = ['high school', 'hs', 'diploma'];
+    
+    if (text.includes('phd') || text.includes('ph.d') || text.includes('doctorate')) {
+      educationLevel = "PhD";
+      educationFallbacks = ['phd', 'ph.d', 'doctorate', 'doctoral'];
+    } else if (text.includes('master') || text.includes('mba') || text.includes('ms') || text.includes('ma')) {
+      educationLevel = "Master's";
+      educationFallbacks = ["master's", 'master', 'masters', 'mba', 'ms', 'ma'];
+    } else if (text.includes('bachelor') || text.includes('bs') || text.includes('ba') || text.includes('undergraduate')) {
+      educationLevel = "Bachelor's";
+      educationFallbacks = ["bachelor's", 'bachelor', 'bachelors', 'bs', 'ba', 'undergraduate'];
+    } else if (text.includes('associate') || text.includes('aa') || text.includes('as')) {
+      educationLevel = "Associate's";
+      educationFallbacks = ["associate's", 'associate', 'aa', 'as'];
+    }
+    
+    // Security clearance analysis
+    const hasSecurityClearance = text.includes('security clearance') || 
+                                 text.includes('clearance') || 
+                                 text.includes('secret') || 
+                                 text.includes('top secret');
+    
+    // Remote work preference analysis
+    let remoteWorkPreference = 'Hybrid'; // Default to hybrid as most flexible
+    if (text.includes('remote work') || text.includes('work remotely') || text.includes('distributed team')) {
+      remoteWorkPreference = 'Remote';
+    } else if (text.includes('on-site') || text.includes('office') || text.includes('in-person')) {
+      remoteWorkPreference = 'On-site';
+    }
+    
+    return {
+      canWorkInUS,
+      needsSponsorship,
+      experienceYears,
+      experienceRange,
+      experienceFallbacks,
+      educationLevel,
+      educationFallbacks,
+      hasSecurityClearance,
+      remoteWorkPreference
+    };
   }
 
   // Helper function to get surrounding text context for an element
