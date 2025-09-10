@@ -460,13 +460,13 @@ class JobFlowAutoFill {
         type: 'websiteUrl'
       },
 
-      // Common job application dropdown questions
+      // Common job application dropdown questions with broader selectors
       { 
         selectors: [
-          'select:has(option[value*="yes"], option[value*="no"])',
           'select[name*="authorized" i]', 'select[id*="authorized" i]',
           'select[name*="eligible" i]', 'select[id*="eligible" i]',
-          'select[name*="legal" i]', 'select[id*="legal" i]'
+          'select[name*="legal" i]', 'select[id*="legal" i]',
+          'select[name*="work" i]', 'select[id*="work" i]'
         ], 
         value: parsedData.workAuthorization,
         type: 'workAuthorization',
@@ -484,31 +484,46 @@ class JobFlowAutoFill {
       },
       { 
         selectors: [
-          'select[name*="gender" i]', 'select[id*="gender" i]'
+          'select[name*="gender" i]', 'select[id*="gender" i]',
+          'select[name*="sex" i]', 'select[id*="sex" i]',
+          'select'  // Generic fallback for context matching
         ], 
         value: parsedData.gender,
         type: 'gender',
-        questionKeywords: ['gender']
+        questionKeywords: ['gender', 'sex', 'male', 'female']
+      },
+      { 
+        selectors: [
+          'select[name*="race" i]', 'select[id*="race" i]',
+          'select[name*="ethnicity" i]', 'select[id*="ethnicity" i]',
+          'select[name*="ethnic" i]', 'select[id*="ethnic" i]',
+          'select'  // Generic fallback for context matching
+        ], 
+        value: parsedData.race,
+        type: 'race',
+        questionKeywords: ['race', 'racial', 'ethnicity', 'ethnic', 'identify your race']
       },
       { 
         selectors: [
           'select[name*="hispanic" i]', 'select[id*="hispanic" i]',
           'select[name*="latino" i]', 'select[id*="latino" i]',
-          'select[name*="ethnicity" i]', 'select[id*="ethnicity" i]'
+          'select[name*="latinx" i]', 'select[id*="latinx" i]',
+          'select'  // Generic fallback for context matching
         ], 
         value: parsedData.ethnicity,
         type: 'ethnicity',
-        questionKeywords: ['hispanic', 'latino', 'ethnicity']
+        questionKeywords: ['hispanic', 'latino', 'latina', 'latinx', 'spanish', 'origin']
       },
       { 
         selectors: [
           'select[name*="worked" i]', 'select[id*="worked" i]',
           'select[name*="previous" i]', 'select[id*="previous" i]',
-          'select[name*="employee" i]', 'select[id*="employee" i]'
+          'select[name*="employee" i]', 'select[id*="employee" i]',
+          'select[name*="employ" i]', 'select[id*="employ" i]'
         ], 
         value: parsedData.previousEmployment,
         type: 'previousEmployment',
-        questionKeywords: ['worked', 'previously', 'employee', 'company', 'organization']
+        questionKeywords: ['worked', 'previously', 'employee', 'company', 'organization', 'ever worked']
       },
       { 
         selectors: [
@@ -525,9 +540,19 @@ class JobFlowAutoFill {
     // Log all available form fields for debugging
     const allInputs = form.querySelectorAll('input, select, textarea');
     console.log(`JobFlow: Form has ${allInputs.length} total input fields:`);
-    allInputs.forEach((input, index) => {
-      console.log(`  Field ${index + 1}: ${input.tagName} - name="${input.name}" id="${input.id}" type="${input.type}" placeholder="${input.placeholder}" class="${input.className}"`);
+    
+    // Specifically log all select elements with their context
+    const allSelects = form.querySelectorAll('select');
+    console.log(`JobFlow: Found ${allSelects.length} select elements:`);
+    allSelects.forEach((select, index) => {
+      const questionContext = this.getQuestionContext(select);
+      console.log(`  Select ${index + 1}: name="${select.name}" id="${select.id}" class="${select.className}"`);
+      console.log(`    Question context: "${questionContext}"`);
+      console.log(`    Options: ${Array.from(select.options).map(o => `"${o.textContent}"`).join(', ')}`);
     });
+    
+    // Log parsed data for debugging
+    console.log('JobFlow: Parsed resume data:', parsedData);
     
     // Check if this looks like our own extension form
     const extensionIndicators = form.querySelector('.jobflow-extension, #jobflow-popup') || 
@@ -744,6 +769,7 @@ class JobFlowAutoFill {
         workAuthorization: authMatch ? 'Yes' : 'Yes', // Default to Yes for most cases
         visaSponsorship: 'No', // Default to No - most people don't need sponsorship
         gender: genderMatch ? genderMatch[1] : '', // Extract from resume or leave empty
+        race: '', // Leave empty for voluntary disclosure
         ethnicity: '', // Leave empty for voluntary disclosure
         previousEmployment: 'No', // Default to No for specific company employment
         familyEmployment: 'No' // Default to No for family members
@@ -781,6 +807,7 @@ class JobFlowAutoFill {
       workAuthorization: 'Yes', // Default to Yes for most cases
       visaSponsorship: 'No', // Default to No - most people don't need sponsorship
       gender: '', // Will be extracted from text if available
+      race: '', // Leave empty for voluntary disclosure
       ethnicity: '', // Leave empty for voluntary disclosure
       previousEmployment: 'No', // Default to No for specific company employment
       familyEmployment: 'No' // Default to No for family members
@@ -826,10 +853,17 @@ class JobFlowAutoFill {
         parsed.skills = line;
       }
       
-      // Gender extraction
-      const genderMatch = line.match(/Gender:\s*(Female|Male|Other)/i);
+      // Gender extraction - handle truncated cases
+      const genderMatch = line.match(/Gender:\s*(Fe(?:male)?|Male|M|F|Other)/i);
       if (genderMatch) {
-        parsed.gender = genderMatch[1];
+        const gender = genderMatch[1].toLowerCase();
+        if (gender.startsWith('fe') || gender === 'f') {
+          parsed.gender = 'Female';
+        } else if (gender.startsWith('male') || gender === 'm') {
+          parsed.gender = 'Male';
+        } else {
+          parsed.gender = genderMatch[1];
+        }
       }
       
       // Work authorization extraction
