@@ -6,14 +6,17 @@ class JobFlowAutoFill {
     this.resumeData = null;
     this.ui = null;
     this.isActive = false;
+    this.observer = null;
+    this.retryCount = 0;
+    this.maxRetries = 10;
   }
 
   async init() {
     // Check if this looks like a job application page
     if (this.isJobApplicationPage()) {
       await this.loadResumeData();
-      this.createFloatingButton();
-      this.detectForms();
+      this.setupDynamicFormDetection();
+      this.detectFormsWithRetry();
     }
   }
 
@@ -98,7 +101,65 @@ class JobFlowAutoFill {
     if (forms.length > 0 && this.resumeData) {
       console.log(`JobFlow: Detected ${forms.length} forms on this page`);
       this.showNotification(`Found ${forms.length} form(s) ready to auto-fill`);
+      this.createFloatingButton();
+      return true;
     }
+    return false;
+  }
+
+  setupDynamicFormDetection() {
+    // Watch for dynamically added forms (common in React/Vue applications)
+    this.observer = new MutationObserver((mutations) => {
+      let formsAdded = false;
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node;
+              // Check if the added node contains forms or is a form
+              if (element.tagName === 'FORM' || element.querySelector('form')) {
+                formsAdded = true;
+              }
+              // Check for common input fields that indicate a form
+              if (element.querySelector('input[type="email"], input[name*="name"], input[name*="phone"]')) {
+                formsAdded = true;
+              }
+            }
+          });
+        }
+      });
+      
+      if (formsAdded) {
+        console.log('JobFlow: Dynamic form detected, retrying form detection');
+        setTimeout(() => this.detectForms(), 500); // Small delay to ensure form is fully rendered
+      }
+    });
+
+    // Start observing
+    this.observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  detectFormsWithRetry() {
+    // Try to detect forms immediately
+    if (this.detectForms()) {
+      return;
+    }
+
+    // If no forms found, retry periodically for dynamic content
+    const retryInterval = setInterval(() => {
+      this.retryCount++;
+      console.log(`JobFlow: Retry ${this.retryCount}/${this.maxRetries} - Looking for forms...`);
+      
+      if (this.detectForms() || this.retryCount >= this.maxRetries) {
+        clearInterval(retryInterval);
+        if (this.retryCount >= this.maxRetries && !this.ui) {
+          console.log('JobFlow: No forms found after maximum retries');
+        }
+      }
+    }, 1000); // Retry every 1 second
   }
 
   createFloatingButton() {
@@ -185,14 +246,22 @@ class JobFlowAutoFill {
     const parsedData = this.parseResumeText(this.resumeData);
     
     const fieldMappings = [
-      // Name fields
+      // Name fields (Enhanced for Greenhouse/dynamic forms)
       { 
-        selectors: ['input[name*="first" i]', 'input[id*="first" i]', 'input[placeholder*="first" i]'], 
+        selectors: [
+          'input[name*="first" i]', 'input[id*="first" i]', 'input[placeholder*="first" i]',
+          'input[data-test*="first" i]', 'input[aria-label*="first" i]',
+          '.first-name input', '#first-name', '[name="job_application[first_name]"]'
+        ], 
         value: parsedData.firstName,
         type: 'firstName'
       },
       { 
-        selectors: ['input[name*="last" i]', 'input[id*="last" i]', 'input[placeholder*="last" i]'], 
+        selectors: [
+          'input[name*="last" i]', 'input[id*="last" i]', 'input[placeholder*="last" i]',
+          'input[data-test*="last" i]', 'input[aria-label*="last" i]',
+          '.last-name input', '#last-name', '[name="job_application[last_name]"]'
+        ], 
         value: parsedData.lastName,
         type: 'lastName'
       },
@@ -203,14 +272,22 @@ class JobFlowAutoFill {
         priority: 'low'
       },
       
-      // Contact fields
+      // Contact fields (Enhanced for Greenhouse/dynamic forms)
       { 
-        selectors: ['input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]', 'input[placeholder*="email" i]'], 
+        selectors: [
+          'input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]', 'input[placeholder*="email" i]',
+          'input[data-test*="email" i]', 'input[aria-label*="email" i]',
+          '.email input', '#email', '[name="job_application[email]"]'
+        ], 
         value: parsedData.email,
         type: 'email'
       },
       { 
-        selectors: ['input[type="tel"]', 'input[name*="phone" i]', 'input[id*="phone" i]', 'input[placeholder*="phone" i]'], 
+        selectors: [
+          'input[type="tel"]', 'input[name*="phone" i]', 'input[id*="phone" i]', 'input[placeholder*="phone" i]',
+          'input[data-test*="phone" i]', 'input[aria-label*="phone" i]',
+          '.phone input', '#phone', '[name="job_application[phone]"]'
+        ], 
         value: parsedData.phone,
         type: 'phone'
       },
@@ -521,6 +598,14 @@ ${data.fullName || 'Applicant'}`;
     setTimeout(() => {
       notification.remove();
     }, 3000);
+  }
+
+  cleanup() {
+    // Stop observing mutations
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
   }
 }
 
