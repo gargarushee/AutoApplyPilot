@@ -430,64 +430,98 @@ ${resumeData.fullName || 'Applicant'}`,
       console.log(`  Input ${i + 1}: ${input.tagName} name="${input.name}" placeholder="${input.placeholder}" type="${input.type}" id="${input.id}"`);
     });
 
-    // More precise field targeting based on labels and context
+    // Robust field targeting using multiple selector strategies
     const fieldMappings = [
       { 
         selectors: [
-          // Look for first input in a div that contains "First Name" text
-          'div:contains("First Name") input[type="text"]',
-          'label:contains("First Name") + input',
-          'label:contains("first name") + input',
+          // First Name - target by position and attributes
           'input[aria-label*="First Name" i]',
-          'input[name*="first_name"]',
-          'input[id*="first_name"]'
+          'input[placeholder*="First" i]',
+          'input[name*="first" i]',
+          'input[id*="first" i]',
+          'form input[type="text"]:first-of-type' // Often first text input
         ], 
         value: parsedData.firstName,
         type: 'firstName'
       },
       { 
         selectors: [
-          'div:contains("Last Name") input[type="text"]',
-          'label:contains("Last Name") + input',
-          'label:contains("last name") + input', 
+          // Last Name - target by position and attributes  
           'input[aria-label*="Last Name" i]',
-          'input[name*="last_name"]',
-          'input[id*="last_name"]'
+          'input[placeholder*="Last" i]',
+          'input[name*="last" i]',
+          'input[id*="last" i]',
+          'form input[type="text"]:nth-of-type(2)' // Often second text input
         ], 
         value: parsedData.lastName,
         type: 'lastName'
       },
       { 
         selectors: [
-          'div:contains("Email") input[type="email"]',
-          'div:contains("Email") input[type="text"]',
-          'label:contains("Email") + input',
+          // Email - target email inputs and common patterns
           'input[type="email"]:not([name*="your-"])',
-          'input[name*="email"]:not([name*="your-"])'
+          'input[aria-label*="Email" i]',
+          'input[placeholder*="Email" i]',
+          'input[name*="email"]:not([name*="your-"])',
+          'input[id*="email"]:not([name*="your-"])',
+          'form input[type="text"][placeholder*="@" i]'
         ], 
         value: parsedData.email,
         type: 'email'
       },
       { 
         selectors: [
-          'div:contains("Phone") input[type="text"]',
-          'div:contains("Phone") input[type="tel"]',
-          'label:contains("Phone") + input',
+          // Phone - target phone inputs and patterns
           'input[type="tel"]',
-          'input[name*="phone"]'
+          'input[aria-label*="Phone" i]',
+          'input[placeholder*="Phone" i]',
+          'input[name*="phone" i]',
+          'input[id*="phone" i]',
+          'input[placeholder*="number" i]'
         ], 
         value: parsedData.phone,
         type: 'phone'
       },
       { 
         selectors: [
-          'div:contains("LinkedIn") input',
-          'div:contains("LinkedIn") textarea',
-          'label:contains("LinkedIn") + input',
-          'input[name*="linkedin"]'
+          // Location/City
+          'input[aria-label*="Location" i]',
+          'input[aria-label*="City" i]',
+          'input[placeholder*="Location" i]',
+          'input[placeholder*="City" i]',
+          'input[name*="location" i]',
+          'input[name*="city" i]',
+          'input[id*="location" i]',
+          'input[id*="city" i]'
         ], 
-        value: parsedData.linkedinUrl,
+        value: parsedData.city || 'San Francisco, CA',
+        type: 'location'
+      },
+      { 
+        selectors: [
+          // LinkedIn Profile
+          'input[aria-label*="LinkedIn" i]',
+          'input[placeholder*="LinkedIn" i]',
+          'input[name*="linkedin" i]',
+          'input[id*="linkedin" i]',
+          'textarea[placeholder*="LinkedIn" i]',
+          'input[placeholder*="profile" i]'
+        ], 
+        value: parsedData.linkedinUrl || 'https://linkedin.com/in/arusheegarg',
         type: 'linkedin'
+      },
+      { 
+        selectors: [
+          // Cover Letter
+          'textarea[aria-label*="Cover" i]',
+          'textarea[placeholder*="Cover" i]',
+          'textarea[name*="cover" i]',
+          'textarea[id*="cover" i]',
+          'textarea[placeholder*="letter" i]',
+          'textarea[name*="letter" i]'
+        ], 
+        value: parsedData.coverLetter,
+        type: 'coverLetter'
       }
     ];
 
@@ -502,31 +536,14 @@ ${resumeData.fullName || 'Applicant'}`,
 
       mapping.selectors.forEach(selector => {
         try {
-          // Custom selector handling for :contains() which isn't natively supported
-          let fields = [];
-          if (selector.includes(':contains(')) {
-            // Handle :contains() selector manually
-            const match = selector.match(/(.+):contains\("([^"]+)"\)\s*(.+)/);
-            if (match) {
-              const [, containerSelector, containsText, inputSelector] = match;
-              const containers = form.querySelectorAll(containerSelector);
-              containers.forEach(container => {
-                if (container.textContent.toLowerCase().includes(containsText.toLowerCase())) {
-                  const inputs = container.querySelectorAll(inputSelector);
-                  fields.push(...inputs);
-                }
-              });
-            }
-          } else {
-            fields = Array.from(form.querySelectorAll(selector));
-          }
-          
+          // Use standard querySelectorAll (no :contains() pseudo-selector)
+          const fields = Array.from(form.querySelectorAll(selector));
           console.log(`  Selector "${selector}": found ${fields.length} fields`);
           
           // Only fill the FIRST matching field to avoid filling multiple fields
           if (fields.length > 0 && foundFields === 0) {
             const field = fields[0];
-            console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}"`);
+            console.log(`    Found field: ${field.tagName} placeholder="${field.placeholder}" name="${field.name}" id="${field.id}"`);
             
             if (field.value && field.value.trim()) {
               console.log(`    Skipping - field already has value: "${field.value}"`);
