@@ -525,6 +525,58 @@ ${resumeData.fullName || 'Applicant'}`,
       }
     ];
 
+    // Handle dropdown and radio button selections for common job application questions
+    const smartSelections = [
+      {
+        // Visa sponsorship questions
+        patterns: ['sponsorship', 'visa', 'h-1b', 'work authorization', 'legally authorized'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: 'No', // Most candidates don't need sponsorship
+        fallbackAnswers: ['no', 'false', '0'],
+        type: 'visaSponsorship'
+      },
+      {
+        // US work eligibility
+        patterns: ['eligible.*work.*us', 'authorized.*work.*united states', 'legally.*work.*us'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: 'Yes',
+        fallbackAnswers: ['yes', 'true', '1'],
+        type: 'workEligibility'
+      },
+      {
+        // Years of experience dropdowns
+        patterns: ['years.*experience', 'experience.*years', 'how many years'],
+        selectors: ['select'],
+        preferredAnswer: '3-5 years',
+        fallbackAnswers: ['3', '4', '5', '2-3', '3-4', '5+'],
+        type: 'yearsExperience'
+      },
+      {
+        // Education level
+        patterns: ['education', 'degree', 'highest.*education'],
+        selectors: ['select'],
+        preferredAnswer: "Bachelor's",
+        fallbackAnswers: ["bachelor's", 'bachelor', 'bs', 'undergraduate'],
+        type: 'educationLevel'
+      },
+      {
+        // Security clearance
+        patterns: ['security clearance', 'clearance'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: 'No',
+        fallbackAnswers: ['no', 'none', 'not applicable'],
+        type: 'securityClearance'
+      },
+      {
+        // Remote work preference
+        patterns: ['remote', 'work.*home', 'location preference'],
+        selectors: ['select', 'input[type="radio"]'],
+        preferredAnswer: 'Remote',
+        fallbackAnswers: ['remote', 'work from home', 'hybrid'],
+        type: 'remoteWork'
+      }
+    ];
+
     fieldMappings.forEach(mapping => {
       if (!mapping.value) {
         console.log(`JobFlow: Skipping ${mapping.type} - no value available`);
@@ -581,6 +633,38 @@ ${resumeData.fullName || 'Applicant'}`,
         console.log(`JobFlow: No fields found for ${mapping.type} using any selector`);
       }
     });
+
+    // Handle smart selections for dropdowns and radio buttons
+    console.log('JobFlow: Processing smart selections for dropdowns and radio buttons...');
+    
+    smartSelections.forEach(selection => {
+      console.log(`JobFlow: Looking for ${selection.type} fields...`);
+      
+      // Find relevant elements by checking surrounding text content
+      const allElements = form.querySelectorAll(selection.selectors.join(', '));
+      console.log(`  Found ${allElements.length} potential ${selection.selectors.join('/')} elements`);
+      
+      allElements.forEach((element, index) => {
+        // Check if this element relates to the question patterns
+        const surroundingText = getSurroundingText(element);
+        const isRelevant = selection.patterns.some(pattern => 
+          new RegExp(pattern, 'i').test(surroundingText)
+        );
+        
+        if (isRelevant) {
+          console.log(`  Element ${index + 1} matches ${selection.type}:`);
+          console.log(`    Type: ${element.tagName}, Text context: "${surroundingText.substring(0, 100)}..."`);
+          
+          const success = handleSmartSelection(element, selection);
+          if (success) {
+            totalFilled++;
+            console.log(`    ✓ Successfully selected ${selection.preferredAnswer} for ${selection.type}`);
+          } else {
+            console.log(`    ✗ Failed to select option for ${selection.type}`);
+          }
+        }
+      });
+    });
   });
 
   // Handle resume file attachment after filling fields
@@ -632,6 +716,100 @@ ${resumeData.fullName || 'Applicant'}`,
     });
   } else {
     console.log('JobFlow: No file inputs found or no resume data available');
+  }
+
+  // Helper function to get surrounding text context for an element
+  function getSurroundingText(element) {
+    let context = '';
+    
+    // Check parent elements for context
+    let parent = element.parentElement;
+    let depth = 0;
+    while (parent && depth < 3) {
+      const textContent = parent.textContent || '';
+      if (textContent.length > context.length) {
+        context = textContent;
+      }
+      parent = parent.parentElement;
+      depth++;
+    }
+    
+    // Also check labels
+    const labels = document.querySelectorAll('label');
+    for (let label of labels) {
+      if (label.contains(element) || (element.id && label.getAttribute('for') === element.id)) {
+        context += ' ' + label.textContent;
+      }
+    }
+    
+    return context.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+  
+  // Helper function to handle smart selection for dropdowns and radio buttons
+  function handleSmartSelection(element, selection) {
+    if (element.tagName.toLowerCase() === 'select') {
+      // Handle dropdown selection
+      const options = Array.from(element.options);
+      console.log(`    Dropdown has ${options.length} options:`, options.map(o => o.textContent.trim()));
+      
+      // Try preferred answer first
+      let selectedOption = options.find(option => 
+        option.textContent.toLowerCase().includes(selection.preferredAnswer.toLowerCase())
+      );
+      
+      // Try fallback answers
+      if (!selectedOption) {
+        for (let fallback of selection.fallbackAnswers) {
+          selectedOption = options.find(option => 
+            option.textContent.toLowerCase().includes(fallback.toLowerCase()) ||
+            option.value.toLowerCase().includes(fallback.toLowerCase())
+          );
+          if (selectedOption) break;
+        }
+      }
+      
+      if (selectedOption) {
+        element.value = selectedOption.value;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    Selected: "${selectedOption.textContent.trim()}"`);
+        return true;
+      }
+    } else if (element.type === 'radio') {
+      // Handle radio button selection
+      const radioGroup = document.querySelectorAll(`input[name="${element.name}"]`);
+      console.log(`    Radio group "${element.name}" has ${radioGroup.length} options`);
+      
+      for (let radio of radioGroup) {
+        const radioContext = getSurroundingText(radio);
+        console.log(`      Option: "${radioContext.substring(0, 50)}..."`);
+        
+        // Check if this radio matches preferred answer
+        const isPreferred = selection.preferredAnswer.toLowerCase() === radioContext.toLowerCase() ||
+                           radioContext.includes(selection.preferredAnswer.toLowerCase());
+        
+        if (isPreferred) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log(`    Selected radio: "${radioContext.substring(0, 50)}..."`);
+          return true;
+        }
+      }
+      
+      // Try fallback answers for radio buttons
+      for (let fallback of selection.fallbackAnswers) {
+        for (let radio of radioGroup) {
+          const radioContext = getSurroundingText(radio);
+          if (radioContext.includes(fallback)) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change', { bubbles: true }));
+            console.log(`    Selected radio (fallback): "${radioContext.substring(0, 50)}..."`);
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
   }
 
   console.log(`JobFlow: Total fields filled: ${totalFilled}`);
