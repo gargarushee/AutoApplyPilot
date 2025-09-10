@@ -291,9 +291,22 @@ class JobFlowPopup {
       const yearsMatch = line.match(/(\d+)[\+\s]*years?\s+(?:of\s+)?(?:experience|exp)/i);
       if (yearsMatch) parsed.yearsOfExperience = yearsMatch[1];
       
-      // Current position/company
+      // Current position/company extraction
       if (line.toLowerCase().includes('software engineer') || line.toLowerCase().includes('developer')) {
         parsed.currentTitle = line;
+        
+        // Extract company name if it follows "at" pattern
+        const atMatch = line.match(/(.+?)\s+at\s+(.+)/i);
+        if (atMatch) {
+          parsed.currentTitle = atMatch[1].trim();
+          parsed.currentCompany = atMatch[2].trim();
+        }
+      }
+      
+      // Look for company patterns
+      const companyMatch = line.match(/(?:at|@|with|for)\s+([A-Z][a-zA-Z\s&]+(?:Inc|LLC|Corp|Corporation|Ltd|Limited|Co|Company)?)/);
+      if (companyMatch && !parsed.currentCompany) {
+        parsed.currentCompany = companyMatch[1].trim();
       }
       
       // Education
@@ -499,6 +512,42 @@ ${resumeData.fullName || 'Applicant'}`,
       },
       { 
         selectors: [
+          // Current Title/Position
+          'input[aria-label*="Current Title" i]',
+          'input[aria-label*="Current Position" i]',
+          'input[aria-label*="Job Title" i]',
+          'input[placeholder*="Current Title" i]',
+          'input[placeholder*="Current Position" i]',
+          'input[placeholder*="Job Title" i]',
+          'input[placeholder*="Title" i]',
+          'input[name*="title" i]',
+          'input[name*="position" i]',
+          'input[id*="title" i]',
+          'input[id*="position" i]'
+        ], 
+        value: parsedData.currentTitle,
+        type: 'currentTitle'
+      },
+      { 
+        selectors: [
+          // Current Company/Employer
+          'input[aria-label*="Current Company" i]',
+          'input[aria-label*="Current Employer" i]',
+          'input[aria-label*="Company" i]',
+          'input[placeholder*="Current Company" i]',
+          'input[placeholder*="Current Employer" i]',
+          'input[placeholder*="Company" i]',
+          'input[placeholder*="Employer" i]',
+          'input[name*="company" i]',
+          'input[name*="employer" i]',
+          'input[id*="company" i]',
+          'input[id*="employer" i]'
+        ], 
+        value: parsedData.currentCompany,
+        type: 'currentCompany'
+      },
+      { 
+        selectors: [
           // LinkedIn Profile
           'input[aria-label*="LinkedIn" i]',
           'input[placeholder*="LinkedIn" i]',
@@ -507,8 +556,22 @@ ${resumeData.fullName || 'Applicant'}`,
           'textarea[placeholder*="LinkedIn" i]',
           'input[placeholder*="profile" i]'
         ], 
-        value: parsedData.linkedinUrl || 'https://linkedin.com/in/arusheegarg',
+        value: parsedData.linkedinUrl,
         type: 'linkedin'
+      },
+      { 
+        selectors: [
+          // GitHub Profile
+          'input[aria-label*="GitHub" i]',
+          'input[aria-label*="Github" i]',
+          'input[placeholder*="GitHub" i]',
+          'input[placeholder*="Github" i]',
+          'input[name*="github" i]',
+          'input[id*="github" i]',
+          'input[placeholder*="git" i]'
+        ], 
+        value: parsedData.githubUrl,
+        type: 'github'
       },
       { 
         selectors: [
