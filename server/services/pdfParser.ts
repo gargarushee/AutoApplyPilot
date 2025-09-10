@@ -18,7 +18,7 @@ export class PDFParserService {
       // If it contains PDF markers, try to extract readable text
       if (text.includes('%PDF')) {
         // Simple text extraction from PDF (basic approach)
-        const textMatch = text.match(/BT\s*(.*?)\s*ET/gs);
+        const textMatch = text.match(/BT\s*(.*?)\s*ET/g);
         if (textMatch) {
           const extractedText = textMatch.map(match => 
             match.replace(/BT|ET/g, '').trim()
