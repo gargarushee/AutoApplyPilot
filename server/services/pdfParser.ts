@@ -7,32 +7,15 @@ export interface ExtractedResumeData {
   education?: string;
 }
 
-export class PDFParserService {
+export class TextParserService {
   static async extractTextFromBuffer(buffer: Buffer): Promise<string> {
     try {
-      console.log('Parsing PDF - file size:', buffer.length, 'bytes');
-      
-      // Alternative approach - parse buffer directly without pdf-parse dependency
+      // For text files, simply convert buffer to UTF-8 string
       const text = buffer.toString('utf8');
-      
-      // If it contains PDF markers, try to extract readable text
-      if (text.includes('%PDF')) {
-        // Simple text extraction from PDF (basic approach)
-        const textMatch = text.match(/BT\s*(.*?)\s*ET/g);
-        if (textMatch) {
-          const extractedText = textMatch.map(match => 
-            match.replace(/BT|ET/g, '').trim()
-          ).join(' ').replace(/[^\w\s@.-]/g, ' ').replace(/\s+/g, ' ').trim();
-          console.log('PDF text extracted successfully, length:', extractedText.length);
-          return extractedText;
-        }
-      }
-      
-      // If no PDF text found, try to use filename for basic extraction
-      console.log('PDF text extraction failed, using filename fallback');
-      return '';
+      console.log('Text file parsed successfully, length:', text.length);
+      return text;
     } catch (error) {
-      console.error('PDF parsing failed:', error);
+      console.error('Text parsing failed:', error);
       return '';
     }
   }
@@ -40,14 +23,14 @@ export class PDFParserService {
   static extractStructuredData(text: string, filename?: string): ExtractedResumeData {
     const data: ExtractedResumeData = {};
 
-    console.log('=== PDF PARSING DEBUG ===');
+    console.log('=== TEXT PARSING DEBUG ===');
     console.log('Filename:', filename);
     console.log('Text length:', text.length);
-    console.log('First 500 chars:', text.substring(0, 500));
+    console.log('First 200 chars:', text.substring(0, 200));
 
     // If we have no text but have a filename, try to extract name from filename
     if (!text && filename) {
-      const fileBaseName = filename.replace(/\.(pdf|doc|docx)$/i, '');
+      const fileBaseName = filename.replace(/\.(txt|pdf|doc|docx)$/i, '');
       const cleanName = fileBaseName.replace(/[-_]/g, ' ').replace(/resume|cv/gi, '').trim();
       
       // Check if it looks like a name (2-4 words, only letters and spaces)
@@ -75,12 +58,12 @@ export class PDFParserService {
     // Extract name (simple heuristic - first line that looks like a name)
     if (!data.fullName) {
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      console.log('First 10 lines of PDF:', lines.slice(0, 10));
+      console.log('First 5 lines of text:', lines.slice(0, 5));
       for (const line of lines.slice(0, 5)) {
         if (line.split(' ').length >= 2 && line.split(' ').length <= 4 && 
             /^[A-Za-z\s]+$/.test(line) && !line.toLowerCase().includes('resume')) {
           data.fullName = line;
-          console.log('Extracted name from PDF text:', data.fullName);
+          console.log('Extracted name from text:', data.fullName);
           break;
         }
       }
@@ -117,7 +100,7 @@ export class PDFParserService {
     }
 
     console.log('Final extracted data:', data);
-    console.log('=== END PDF PARSING DEBUG ===');
+    console.log('=== END TEXT PARSING DEBUG ===');
     return data;
   }
 }

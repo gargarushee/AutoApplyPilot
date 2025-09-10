@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
 import { storage } from "./storage";
-import { PDFParserService } from "./services/pdfParser";
+import { TextParserService } from "./services/pdfParser";
 import { JobParserService } from "./services/jobParser";
 import { 
   insertUserSchema,
@@ -20,10 +20,10 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    if (file.mimetype === 'application/pdf') {
+    if (file.mimetype === 'text/plain') {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'));
+      cb(new Error('Only text files (.txt) are allowed'));
     }
   }
 });
@@ -78,17 +78,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filename = `${Date.now()}-${req.file.originalname}`;
       const objectPath = `/demo-uploads/${filename}`;
 
-      // Extract text and data from PDF (with error handling)
+      // Extract text and data from text file (much simpler!)
       let extractedText = '';
       let extractedData = {};
       
       try {
-        extractedText = await PDFParserService.extractTextFromBuffer(req.file.buffer);
-        extractedData = PDFParserService.extractStructuredData(extractedText, req.file.originalname);
+        // For text files, just convert buffer to string
+        extractedText = req.file.buffer.toString('utf8');
+        console.log('Text file content extracted, length:', extractedText.length);
+        extractedData = TextParserService.extractStructuredData(extractedText, req.file.originalname);
       } catch (error) {
-        console.warn('PDF parsing failed, will create resume without extracted data:', error);
+        console.warn('Text parsing failed, will create resume without extracted data:', error);
         // Try to extract data from filename as fallback
-        extractedData = PDFParserService.extractStructuredData('', req.file.originalname);
+        extractedData = TextParserService.extractStructuredData('', req.file.originalname);
       }
 
       // Create resume record

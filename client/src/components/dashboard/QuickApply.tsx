@@ -98,7 +98,7 @@ export function QuickApply() {
                 <p className="text-xs text-muted-foreground">
                   {currentResume 
                     ? `Uploaded ${new Date(currentResume.createdAt || '').toLocaleDateString()}`
-                    : "Upload a resume to get started"
+                    : "Upload a resume as a .txt file to get started"
                   }
                 </p>
               </div>
@@ -115,7 +115,7 @@ export function QuickApply() {
             <input
               id="resume-upload"
               type="file"
-              accept=".pdf"
+              accept=".txt"
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
@@ -140,7 +140,7 @@ export function QuickApply() {
                       const errorData = await response.json();
                       toast({
                         title: "Upload failed",
-                        description: errorData.error || "Failed to process resume. Please try again.",
+                        description: errorData.error || "Failed to process text file. Please try again.",
                         variant: "destructive",
                       });
                     }
@@ -148,7 +148,7 @@ export function QuickApply() {
                     console.error('Resume upload error:', error);
                     toast({
                       title: "Upload failed",
-                      description: "Failed to process resume. Please try again.",
+                      description: "Failed to process text file. Please try again.",
                       variant: "destructive",
                     });
                   }
