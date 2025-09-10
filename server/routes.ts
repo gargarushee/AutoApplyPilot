@@ -37,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       id: 'demo-user-id',
       username: 'demo',
       email: 'demo@example.com',
-      fullName: 'Alex Johnson'
+      fullName: 'Demo User'
     };
     next();
   };
@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: 'demo',
         password: 'demo',
         email: 'demo@example.com',
-        fullName: 'Alex Johnson',
+        fullName: 'Demo User',
         phone: '+1 (555) 123-4567',
         currentResumeId: null
       }, 'demo-user-id'); // Specify the ID to create user with exact ID

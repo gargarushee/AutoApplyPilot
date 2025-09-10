@@ -28,6 +28,14 @@ export class TextParserService {
     console.log('Text length:', text.length);
     console.log('First 200 chars:', text.substring(0, 200));
 
+    // Convert RTF to plain text if needed
+    if (text.startsWith('{\\rtf1')) {
+      console.log('RTF format detected, converting to plain text...');
+      text = this.convertRtfToPlainText(text);
+      console.log('Converted text length:', text.length);
+      console.log('Converted first 200 chars:', text.substring(0, 200));
+    }
+
     // If we have no text but have a filename, try to extract name from filename
     if (!text && filename) {
       const fileBaseName = filename.replace(/\.(txt|pdf|doc|docx)$/i, '');
@@ -102,5 +110,31 @@ export class TextParserService {
     console.log('Final extracted data:', data);
     console.log('=== END TEXT PARSING DEBUG ===');
     return data;
+  }
+
+  // Convert RTF (Rich Text Format) to plain text
+  static convertRtfToPlainText(rtfText: string): string {
+    try {
+      // Remove RTF control codes and formatting
+      let text = rtfText;
+      
+      // Remove RTF header and control codes
+      text = text.replace(/\{\\rtf1[^{}]*\{[^{}]*\}/g, ''); // Remove RTF headers
+      text = text.replace(/\{\\[^{}]*\}/g, ''); // Remove control groups
+      text = text.replace(/\\[a-z]+\d*\s?/gi, ''); // Remove control words
+      text = text.replace(/\{|\}/g, ''); // Remove remaining braces
+      text = text.replace(/\\\\/g, '\\'); // Unescape backslashes
+      text = text.replace(/\\'/g, "'"); // Unescape quotes
+      
+      // Clean up whitespace and newlines
+      text = text.replace(/\s+/g, ' '); // Normalize whitespace
+      text = text.replace(/\n\s*\n/g, '\n'); // Remove empty lines
+      text = text.trim();
+      
+      return text;
+    } catch (error) {
+      console.error('RTF conversion failed:', error);
+      return rtfText; // Return original if conversion fails
+    }
   }
 }
