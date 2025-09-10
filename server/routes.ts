@@ -154,12 +154,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         experience: resume.extractedData?.experience || '',
         skills: resume.extractedData?.skills || [],
         education: resume.extractedData?.education || '',
-        linkedinUrl: resume.extractedData?.linkedinUrl || '',
-        githubUrl: resume.extractedData?.githubUrl || '',
-        currentTitle: resume.extractedData?.currentTitle || '',
-        currentCompany: resume.extractedData?.currentCompany || '',
-        fieldOfStudy: resume.extractedData?.fieldOfStudy || '',
-        gender: resume.extractedData?.gender || '',
         filename: resume.filename
       };
 

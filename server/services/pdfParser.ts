@@ -5,12 +5,6 @@ export interface ExtractedResumeData {
   experience?: string;
   skills?: string[];
   education?: string;
-  linkedinUrl?: string;
-  githubUrl?: string;
-  currentTitle?: string;
-  currentCompany?: string;
-  fieldOfStudy?: string;
-  gender?: string;
 }
 
 export class TextParserService {
@@ -99,69 +93,10 @@ export class TextParserService {
     );
     data.skills = foundSkills;
 
-    // Extract LinkedIn URL
-    const linkedinMatch = text.match(/(?:linkedin\.com\/in\/|linkedin\s+url?:?\s*)([\w\-\.\/]+)/i);
-    if (linkedinMatch) {
-      let linkedinUrl = linkedinMatch[1];
-      if (!linkedinUrl.startsWith('http')) {
-        linkedinUrl = linkedinUrl.startsWith('www.') ? `https://${linkedinUrl}` : `https://www.linkedin.com/in/${linkedinUrl}`;
-      }
-      data.linkedinUrl = linkedinUrl;
-    }
-
-    // Extract GitHub URL
-    const githubMatch = text.match(/(?:github\.com\/|github\s+url?:?\s*)([\w\-\.\/]+)/i);
-    if (githubMatch) {
-      let githubUrl = githubMatch[1];
-      if (!githubUrl.startsWith('http')) {
-        githubUrl = githubUrl.startsWith('github.com') ? `https://${githubUrl}` : `https://github.com/${githubUrl}`;
-      }
-      data.githubUrl = githubUrl;
-    }
-
-    // Extract current title and company
-    const titleCompanyMatch = text.match(/(?:title|position|role):\s*(.+?)\s+at\s+(.+?)(?:\n|$)/i) ||
-                             text.match(/(.+?)\s+at\s+(.+?)(?:\n|$)/);
-    if (titleCompanyMatch) {
-      data.currentTitle = titleCompanyMatch[1].trim();
-      data.currentCompany = titleCompanyMatch[2].trim();
-    }
-
-    // Extract education with better parsing
-    let educationInfo = '';
-    const universityMatch = text.match(/(university|college|institute)\s+of\s+[\w\s]+/i) ||
-                           text.match(/([\w\s]+)\s+(university|college|institute)/i);
-    if (universityMatch) {
-      educationInfo = universityMatch[0].trim();
-    }
-
-    const degreeMatch = text.match(/(Bachelor|Master|PhD|B\.S\.|M\.S\.|B\.A\.|M\.A\.|Associate).*?(?:\n|$)/i);
-    if (degreeMatch) {
-      const degreeInfo = degreeMatch[0].trim();
-      educationInfo = educationInfo ? `${degreeInfo} - ${educationInfo}` : degreeInfo;
-    }
-
-    if (educationInfo) {
-      data.education = educationInfo;
-    }
-
-    // Extract field of study/major
-    const majorMatch = text.match(/(?:major|degree|studied|field).*?(?:in\s+)?(computer science|engineering|business|mathematics|physics|chemistry|biology|psychology|economics|finance|marketing|[\w\s]+)/i);
-    if (majorMatch) {
-      data.fieldOfStudy = majorMatch[1] ? majorMatch[1].trim() : majorMatch[0].trim();
-    }
-
-    // Extract gender if present
-    const genderMatch = text.match(/gender:\s*(fe(?:male)?|male|m|f|other)/i);
-    if (genderMatch) {
-      const extractedGender = genderMatch[1].toLowerCase();
-      if (extractedGender.startsWith('fe') || extractedGender === 'f') {
-        data.gender = 'Female';
-      } else if (extractedGender.startsWith('male') || extractedGender === 'm') {
-        data.gender = 'Male';
-      } else {
-        data.gender = genderMatch[1];
-      }
+    // Extract education (simple heuristic)
+    const educationMatch = text.match(/(Bachelor|Master|PhD|B\.S\.|M\.S\.|B\.A\.|M\.A\.).*?(?:\n|$)/i);
+    if (educationMatch) {
+      data.education = educationMatch[0].trim();
     }
 
     console.log('Final extracted data:', data);
