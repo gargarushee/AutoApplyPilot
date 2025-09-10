@@ -486,33 +486,36 @@ class JobFlowAutoFill {
         selectors: [
           'select[name*="gender" i]', 'select[id*="gender" i]',
           'select[name*="sex" i]', 'select[id*="sex" i]',
+          'select[class*="gender" i]', 'select[class*="sex" i]',
           'select'  // Generic fallback for context matching
         ], 
         value: parsedData.gender,
         type: 'gender',
-        questionKeywords: ['gender', 'sex', 'male', 'female']
+        questionKeywords: ['gender', 'sex', 'male', 'female', 'identify', 'select your gender']
       },
       { 
         selectors: [
           'select[name*="race" i]', 'select[id*="race" i]',
           'select[name*="ethnicity" i]', 'select[id*="ethnicity" i]',
           'select[name*="ethnic" i]', 'select[id*="ethnic" i]',
+          'select[class*="race" i]', 'select[class*="ethnicity" i]',
           'select'  // Generic fallback for context matching
         ], 
         value: parsedData.race,
         type: 'race',
-        questionKeywords: ['race', 'racial', 'ethnicity', 'ethnic', 'identify your race']
+        questionKeywords: ['race', 'racial', 'ethnicity', 'ethnic', 'identify your race', 'please identify', 'select your race']
       },
       { 
         selectors: [
           'select[name*="hispanic" i]', 'select[id*="hispanic" i]',
           'select[name*="latino" i]', 'select[id*="latino" i]',
           'select[name*="latinx" i]', 'select[id*="latinx" i]',
+          'select[class*="hispanic" i]', 'select[class*="latino" i]',
           'select'  // Generic fallback for context matching
         ], 
         value: parsedData.ethnicity,
         type: 'ethnicity',
-        questionKeywords: ['hispanic', 'latino', 'latina', 'latinx', 'spanish', 'origin']
+        questionKeywords: ['hispanic', 'latino', 'latina', 'latinx', 'spanish', 'origin', 'are you hispanic']
       },
       { 
         selectors: [
@@ -565,12 +568,20 @@ class JobFlowAutoFill {
     }
 
     fieldMappings.forEach(mapping => {
-      if (!mapping.value) {
+      // Allow processing of demographic fields even without values (voluntary disclosure)
+      const isDemographicField = ['gender', 'race', 'ethnicity'].includes(mapping.type);
+      
+      if (!mapping.value && !isDemographicField) {
         console.log(`JobFlow: Skipping ${mapping.type} - no value available`);
         return;
       }
 
-      console.log(`JobFlow: Looking for ${mapping.type} fields with value: "${mapping.value}"`);
+      console.log(`JobFlow: Looking for ${mapping.type} fields...`);
+      if (mapping.value) {
+        console.log(`  Value to fill: "${mapping.value}"`);
+      } else {
+        console.log(`  Demographic field - checking if dropdown exists (value will be left empty)`);
+      }
       let foundFields = 0;
 
       mapping.selectors.forEach(selector => {
@@ -599,29 +610,62 @@ class JobFlowAutoFill {
               return;
             }
             
-            console.log(`    Filling select field with: "${mapping.value}" (matched question context)`);
-            this.fillSelectElement(field, mapping.value, mapping.type);
+            if (mapping.value) {
+              console.log(`    Filling select field with: "${mapping.value}" (matched question context)`);
+              this.fillSelectElement(field, mapping.value, mapping.type);
+              filledCount++;
+              
+              // Trigger events and visual feedback for filled fields
+              field.dispatchEvent(new Event('input', { bubbles: true }));
+              field.dispatchEvent(new Event('change', { bubbles: true }));
+              field.dispatchEvent(new Event('blur', { bubbles: true }));
+              
+              field.style.backgroundColor = '#dcfce7';
+              setTimeout(() => {
+                field.style.backgroundColor = '';
+              }, 1000);
+              
+              console.log(`    ✓ Successfully filled field`);
+            } else {
+              console.log(`    ✓ Found matching demographic field (${mapping.type}) - voluntary disclosure field`);
+            }
           } else if (field.tagName.toLowerCase() === 'select') {
-            console.log(`    Filling select field with: "${mapping.value}"`);
-            this.fillSelectElement(field, mapping.value, mapping.type);
-          } else {
+            if (mapping.value) {
+              console.log(`    Filling select field with: "${mapping.value}"`);
+              this.fillSelectElement(field, mapping.value, mapping.type);
+              filledCount++;
+              
+              // Trigger events and visual feedback for filled fields
+              field.dispatchEvent(new Event('input', { bubbles: true }));
+              field.dispatchEvent(new Event('change', { bubbles: true }));
+              field.dispatchEvent(new Event('blur', { bubbles: true }));
+              
+              field.style.backgroundColor = '#dcfce7';
+              setTimeout(() => {
+                field.style.backgroundColor = '';
+              }, 1000);
+              
+              console.log(`    ✓ Successfully filled field`);
+            } else {
+              console.log(`    ✓ Found demographic field (${mapping.type}) - voluntary disclosure field`);
+            }
+          } else if (mapping.value) {
             console.log(`    Filling ${field.tagName} field with: "${mapping.value}"`);
             field.value = mapping.value;
+            filledCount++;
+            
+            // Trigger events and visual feedback for filled fields
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            field.dispatchEvent(new Event('blur', { bubbles: true }));
+            
+            field.style.backgroundColor = '#dcfce7';
+            setTimeout(() => {
+              field.style.backgroundColor = '';
+            }, 1000);
+            
+            console.log(`    ✓ Successfully filled field`);
           }
-          
-          // Trigger events to ensure the form recognizes the change
-          field.dispatchEvent(new Event('input', { bubbles: true }));
-          field.dispatchEvent(new Event('change', { bubbles: true }));
-          field.dispatchEvent(new Event('blur', { bubbles: true }));
-          
-          // Visual feedback
-          field.style.backgroundColor = '#dcfce7';
-          setTimeout(() => {
-            field.style.backgroundColor = '';
-          }, 1000);
-          
-          filledCount++;
-          console.log(`    ✓ Successfully filled field`);
         });
       });
 
@@ -644,18 +688,40 @@ class JobFlowAutoFill {
       questionText += ' ' + label.textContent;
     }
     
-    // Check parent element text content
-    if (field.parentElement) {
-      questionText += ' ' + field.parentElement.textContent;
+    // Check current parent element
+    let currentParent = field.parentElement;
+    if (currentParent) {
+      questionText += ' ' + currentParent.textContent;
     }
     
-    // Check previous siblings for question text
-    let sibling = field.parentElement?.previousElementSibling;
-    if (sibling) {
+    // Check grandparent elements (up to 3 levels)
+    for (let i = 0; i < 3 && currentParent; i++) {
+      currentParent = currentParent.parentElement;
+      if (currentParent) {
+        // Get text content but exclude nested form elements to avoid noise
+        const tempDiv = currentParent.cloneNode(true);
+        const nestedInputs = tempDiv.querySelectorAll('input, select, textarea, button');
+        nestedInputs.forEach(input => input.remove());
+        questionText += ' ' + tempDiv.textContent;
+      }
+    }
+    
+    // Check previous siblings at field level
+    let sibling = field.previousElementSibling;
+    while (sibling) {
       questionText += ' ' + sibling.textContent;
+      sibling = sibling.previousElementSibling;
     }
     
-    return questionText.trim();
+    // Check previous siblings at parent level
+    sibling = field.parentElement?.previousElementSibling;
+    while (sibling) {
+      questionText += ' ' + sibling.textContent;
+      sibling = sibling.previousElementSibling;
+    }
+    
+    // Clean up the text
+    return questionText.replace(/\s+/g, ' ').trim();
   }
 
   fillSelectElement(selectElement, value, fieldType = '') {
