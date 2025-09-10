@@ -40,6 +40,11 @@ export class PDFParserService {
   static extractStructuredData(text: string, filename?: string): ExtractedResumeData {
     const data: ExtractedResumeData = {};
 
+    console.log('=== PDF PARSING DEBUG ===');
+    console.log('Filename:', filename);
+    console.log('Text length:', text.length);
+    console.log('First 500 chars:', text.substring(0, 500));
+
     // If we have no text but have a filename, try to extract name from filename
     if (!text && filename) {
       const fileBaseName = filename.replace(/\.(pdf|doc|docx)$/i, '');
@@ -51,6 +56,7 @@ export class PDFParserService {
         data.fullName = cleanName.split(' ').map(word => 
           word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         ).join(' ');
+        console.log('Extracted name from filename:', data.fullName);
       }
     }
 
@@ -69,10 +75,12 @@ export class PDFParserService {
     // Extract name (simple heuristic - first line that looks like a name)
     if (!data.fullName) {
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      console.log('First 10 lines of PDF:', lines.slice(0, 10));
       for (const line of lines.slice(0, 5)) {
         if (line.split(' ').length >= 2 && line.split(' ').length <= 4 && 
             /^[A-Za-z\s]+$/.test(line) && !line.toLowerCase().includes('resume')) {
           data.fullName = line;
+          console.log('Extracted name from PDF text:', data.fullName);
           break;
         }
       }
@@ -108,6 +116,8 @@ export class PDFParserService {
       data.education = educationMatch[0].trim();
     }
 
+    console.log('Final extracted data:', data);
+    console.log('=== END PDF PARSING DEBUG ===');
     return data;
   }
 }
