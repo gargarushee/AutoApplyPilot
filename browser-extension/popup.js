@@ -190,9 +190,38 @@ class JobFlowPopup {
   }
 
 
-  fillSelectElement(selectElement, value) {
-    const options = Array.from(selectElement.options);
+  fillSelectElement(selectElement, value, fieldType = '') {
+    if (!value) return false;
     
+    const options = Array.from(selectElement.options);
+    console.log(`    Filling select (${fieldType}) with value: "${value}"`);
+    console.log(`    Available options: ${options.slice(0, 10).map(o => `"${o.textContent.trim()}"`).join(', ')}${options.length > 10 ? '...' : ''}`);
+    
+    // For school fields, try to match university names more intelligently
+    if (fieldType === 'school' && value) {
+      // Extract university name from various formats
+      let universityName = value;
+      const universityMatch = value.match(/([A-Za-z\s]+(?:University|College|Institute))/i);
+      if (universityMatch) {
+        universityName = universityMatch[1].trim();
+      }
+      
+      console.log(`    Looking for university: "${universityName}"`);
+      
+      // Try exact match with extracted university name
+      let matchingOption = options.find(option => 
+        option.textContent.toLowerCase().includes(universityName.toLowerCase())
+      );
+      
+      if (matchingOption) {
+        selectElement.value = matchingOption.value;
+        selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`    ✓ Selected school: "${matchingOption.textContent.trim()}"`);
+        return true;
+      }
+    }
+    
+    // Standard dropdown handling for other fields
     // Try exact match first
     let matchingOption = options.find(option => 
       option.value.toLowerCase() === value.toLowerCase() || 
@@ -210,7 +239,12 @@ class JobFlowPopup {
     if (matchingOption) {
       selectElement.value = matchingOption.value;
       selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`    ✓ Selected: "${matchingOption.textContent.trim()}"`);
+      return true;
     }
+    
+    console.log(`    ✗ No matching option found for "${value}"`);
+    return false;
   }
 
   parseResumeText(resumeData) {
@@ -309,10 +343,33 @@ class JobFlowPopup {
         parsed.currentCompany = companyMatch[1].trim();
       }
       
-      // Education
-      if (line.toLowerCase().includes('university') || line.toLowerCase().includes('college') || 
-          line.toLowerCase().includes('bachelor') || line.toLowerCase().includes('master')) {
-        parsed.school = line;
+      // Education parsing
+      if (line.toLowerCase().includes('university') || line.toLowerCase().includes('college') || line.toLowerCase().includes('institute')) {
+        parsed.school = line.trim();
+        
+        // Extract degree information if present in the same line
+        if (line.toLowerCase().includes('bachelor')) {
+          parsed.degree = 'Bachelor\'s';
+        } else if (line.toLowerCase().includes('master')) {
+          parsed.degree = 'Master\'s';
+        } else if (line.toLowerCase().includes('phd') || line.toLowerCase().includes('doctorate')) {
+          parsed.degree = 'PhD';
+        }
+      }
+      
+      // Look for specific degree information
+      if (line.toLowerCase().includes('bachelor') && !parsed.degree) {
+        parsed.degree = 'Bachelor\'s';
+      } else if (line.toLowerCase().includes('master') && !parsed.degree) {
+        parsed.degree = 'Master\'s';
+      } else if (line.toLowerCase().includes('phd') || line.toLowerCase().includes('doctorate')) {
+        parsed.degree = 'PhD';
+      }
+      
+      // Look for field of study/major
+      const fieldMatch = line.match(/(?:major|degree|studied)\s+(?:in\s+)?([A-Za-z\s]+)/i);
+      if (fieldMatch && !parsed.fieldOfStudy) {
+        parsed.fieldOfStudy = fieldMatch[1].trim();
       }
       
       // Skills (if line contains common tech terms)
@@ -572,6 +629,57 @@ ${resumeData.fullName || 'Applicant'}`,
         ], 
         value: parsedData.githubUrl,
         type: 'github'
+      },
+      { 
+        selectors: [
+          // School/University
+          'input[aria-label*="School" i]',
+          'input[aria-label*="University" i]',
+          'input[aria-label*="College" i]',
+          'input[placeholder*="School" i]',
+          'input[placeholder*="University" i]',
+          'input[placeholder*="College" i]',
+          'input[name*="school" i]',
+          'input[name*="university" i]',
+          'input[name*="college" i]',
+          'input[id*="school" i]',
+          'input[id*="university" i]',
+          'select[aria-label*="School" i]',
+          'select[name*="school" i]',
+          'select[id*="school" i]'
+        ], 
+        value: parsedData.school,
+        type: 'school'
+      },
+      { 
+        selectors: [
+          // Degree
+          'input[aria-label*="Degree" i]',
+          'input[placeholder*="Degree" i]',
+          'input[name*="degree" i]',
+          'input[id*="degree" i]',
+          'select[aria-label*="Degree" i]',
+          'select[name*="degree" i]',
+          'select[id*="degree" i]'
+        ], 
+        value: parsedData.degree,
+        type: 'degree'
+      },
+      { 
+        selectors: [
+          // Field of Study/Major
+          'input[aria-label*="Field of Study" i]',
+          'input[aria-label*="Major" i]',
+          'input[placeholder*="Field of Study" i]',
+          'input[placeholder*="Major" i]',
+          'input[placeholder*="Field" i]',
+          'input[name*="major" i]',
+          'input[name*="field" i]',
+          'input[id*="major" i]',
+          'input[id*="field" i]'
+        ], 
+        value: parsedData.fieldOfStudy,
+        type: 'fieldOfStudy'
       },
       { 
         selectors: [
