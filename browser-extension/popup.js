@@ -47,7 +47,7 @@ class JobFlowPopup {
       // Inject content script to check for forms
       const results = await chrome.scripting.executeScript({
         target: { tabId: this.currentTab.id },
-        function: this.checkForJobForms
+        function: checkForJobFormsScript
       });
 
       const pageInfo = results && results[0] && results[0].result 
@@ -60,62 +60,6 @@ class JobFlowPopup {
     }
   }
 
-  checkForJobForms() {
-    // This function runs in the context of the web page
-    const url = window.location.href.toLowerCase();
-    const content = document.body?.textContent?.toLowerCase() || '';
-    
-    const jobKeywords = [
-      'careers', 'jobs', 'apply', 'application', 'position', 'employment', 'hiring',
-      'lever.co', 'greenhouse.io', 'workday.com', 'jobvite.com', 'breezy.hr',
-      'gh_jid', 'job', 'opening', 'staff', 'engineer', 'developer'
-    ];
-    
-    const formKeywords = [
-      'resume', 'cv', 'first name', 'last name', 'email', 'phone',
-      'cover letter', 'experience', 'skills', 'education', 'apply for this job',
-      'submit application', 'greenhouse', 'autofill with greenhouse'
-    ];
-    
-    // Enhanced detection - check URL keywords
-    const urlHasJobKeywords = jobKeywords.some(keyword => url.includes(keyword));
-    
-    // Check content keywords  
-    const contentHasJobKeywords = formKeywords.some(keyword => content.includes(keyword));
-    
-    // Check for specific job application indicators
-    const hasJobApplicationForm = document.querySelector('form') && (
-      content.includes('apply for this job') ||
-      content.includes('submit application') ||
-      content.includes('first name') ||
-      content.includes('resume/cv') ||
-      url.includes('gh_jid') ||
-      url.includes('careers')
-    );
-    
-    const isJobPage = urlHasJobKeywords || contentHasJobKeywords || hasJobApplicationForm;
-    
-    const forms = document.querySelectorAll('form');
-    const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea');
-    
-    // Debug logging (will show in browser console)
-    console.log('JobFlow Page Detection Debug:', {
-      url: window.location.href,
-      urlHasJobKeywords,
-      contentHasJobKeywords, 
-      hasJobApplicationForm,
-      isJobPage,
-      formsFound: forms.length,
-      inputsFound: inputs.length
-    });
-    
-    return {
-      isJobPage,
-      formsFound: forms.length,
-      inputsFound: inputs.length,
-      url: window.location.href
-    };
-  }
 
   showState(state) {
     // Hide all states
@@ -532,6 +476,64 @@ Experience: ${this.resumeData.experience ? this.resumeData.experience.substring(
 
     alert(preview);
   }
+}
+
+// Standalone function for script injection (must be outside the class)
+function checkForJobFormsScript() {
+  // This function runs in the context of the web page
+  const url = window.location.href.toLowerCase();
+  const content = document.body?.textContent?.toLowerCase() || '';
+  
+  const jobKeywords = [
+    'careers', 'jobs', 'apply', 'application', 'position', 'employment', 'hiring',
+    'lever.co', 'greenhouse.io', 'workday.com', 'jobvite.com', 'breezy.hr',
+    'gh_jid', 'job', 'opening', 'staff', 'engineer', 'developer'
+  ];
+  
+  const formKeywords = [
+    'resume', 'cv', 'first name', 'last name', 'email', 'phone',
+    'cover letter', 'experience', 'skills', 'education', 'apply for this job',
+    'submit application', 'greenhouse', 'autofill with greenhouse'
+  ];
+  
+  // Enhanced detection - check URL keywords
+  const urlHasJobKeywords = jobKeywords.some(keyword => url.includes(keyword));
+  
+  // Check content keywords  
+  const contentHasJobKeywords = formKeywords.some(keyword => content.includes(keyword));
+  
+  // Check for specific job application indicators
+  const hasJobApplicationForm = document.querySelector('form') && (
+    content.includes('apply for this job') ||
+    content.includes('submit application') ||
+    content.includes('first name') ||
+    content.includes('resume/cv') ||
+    url.includes('gh_jid') ||
+    url.includes('careers')
+  );
+  
+  const isJobPage = urlHasJobKeywords || contentHasJobKeywords || hasJobApplicationForm;
+  
+  const forms = document.querySelectorAll('form');
+  const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea');
+  
+  // Debug logging (will show in browser console)
+  console.log('JobFlow Page Detection Debug:', {
+    url: window.location.href,
+    urlHasJobKeywords,
+    contentHasJobKeywords, 
+    hasJobApplicationForm,
+    isJobPage,
+    formsFound: forms.length,
+    inputsFound: inputs.length
+  });
+  
+  return {
+    isJobPage,
+    formsFound: forms.length,
+    inputsFound: inputs.length,
+    url: window.location.href
+  };
 }
 
 // Initialize popup when DOM is ready
